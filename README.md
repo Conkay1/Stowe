@@ -32,7 +32,7 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 
 ### macOS (recommended)
 
-1. Download `Stowe-0.1.0.dmg` from the latest [Release](https://github.com/YOUR-USERNAME/stowe/releases).
+1. Download `Stowe-0.1.0.dmg` from the latest [Release](https://github.com/Conkay1/stowe/releases).
 2. Open the DMG and drag **Stowe** into **Applications**.
 3. **First launch:** because this build is unsigned, macOS will say *"Stowe can't be opened because Apple cannot check it for malicious software."* This is expected. Bypass it once:
    - **Option A:** Right-click `Stowe.app` → **Open** → confirm **Open** in the dialog.
@@ -46,7 +46,7 @@ Windows installer is on the way.
 Requires Python 3.10 or newer.
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/stowe.git
+git clone https://github.com/Conkay1/stowe.git
 cd stowe
 python3 run.py
 ```
