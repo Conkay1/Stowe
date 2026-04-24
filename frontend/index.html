@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Stowe — HSA receipts</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+  <nav class="topnav">
+    <span class="nav-brand">🏥 Stowe</span>
+    <div class="nav-links">
+      <a href="#/vault"  class="nav-link" data-page="vault">Vault</a>
+      <a href="#/add"    class="nav-link" data-page="add">+ Add</a>
+      <a href="#/ledger" class="nav-link" data-page="ledger">Ledger</a>
+    </div>
+  </nav>
+
+  <main id="app"></main>
+
+  <nav class="tab-bar">
+    <a href="#/vault"  class="tab-item" data-page="vault">
+      <span class="tab-icon">🏦</span>
+      <span class="tab-label">Vault</span>
+    </a>
+    <a href="#/add"    class="tab-item" data-page="add">
+      <span class="tab-icon">➕</span>
+      <span class="tab-label">Add</span>
+    </a>
+    <a href="#/ledger" class="tab-item" data-page="ledger">
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">Ledger</span>
+    </a>
+  </nav>
+
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-box" class="modal-box">
+      <button id="modal-close" class="modal-close">&times;</button>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

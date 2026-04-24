@@ -1,0 +1,44 @@
+# ── Personal data (never commit) ─────────────────────────────────────────────
+database/*.db
+database/*.db-journal
+database/*.db-wal
+database/*.db-shm
+receipts/*
+!receipts/.gitkeep
+!database/.gitkeep
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# ── Virtualenvs ──────────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env
+.env.local
+
+# ── PyInstaller build output ─────────────────────────────────────────────────
+build/
+dist/
+
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# ── Editors / IDEs ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
