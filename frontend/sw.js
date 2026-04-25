@@ -1,4 +1,4 @@
-const CACHE_NAME = "hsa-vault-v1";
+const CACHE_NAME = "stowe-v2";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", e => e.waitUntil(self.clients.claim()));

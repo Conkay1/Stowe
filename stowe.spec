@@ -7,8 +7,12 @@ a = Analysis(
     ['run.py'],
     pathex=['.'],
     binaries=[],
-    datas=[('frontend', 'frontend')],
+    datas=[
+        ('frontend', 'frontend'),
+        ('assets',   'assets'),
+    ],
     hiddenimports=[
+        # uvicorn
         'uvicorn.logging',
         'uvicorn.loops.auto',
         'uvicorn.loops.asyncio',
@@ -18,8 +22,15 @@ a = Analysis(
         'uvicorn.protocols.websockets.websockets_impl',
         'uvicorn.lifespan.on',
         'uvicorn.lifespan.off',
+        # multipart
         'python_multipart',
         'multipart',
+        # pywebview
+        'webview',
+        'webview.platforms.cocoa',
+        'webview.platforms.winforms',
+        'webview.platforms.gtk',
+        'webview.platforms.qt',
     ],
     hookspath=[],
     hooksconfig={},
@@ -61,15 +72,19 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Stowe.app',
-    icon=None,
+    icon='assets/stowe.icns',
     bundle_identifier='com.stowe.app',
     info_plist={
         'CFBundleName': 'Stowe',
         'CFBundleDisplayName': 'Stowe',
-        'CFBundleVersion': '0.1.0',
-        'CFBundleShortVersionString': '0.1.0',
+        'CFBundleVersion': '0.2.0',
+        'CFBundleShortVersionString': '0.2.0',
         'NSHighResolutionCapable': True,
         'LSMinimumSystemVersion': '11.0',
         'NSHumanReadableCopyright': 'Copyright (c) 2026 Connor Kay. MIT License.',
+        # Allow WKWebView to load localhost
+        'NSAppTransportSecurity': {
+            'NSAllowsLocalNetworking': True,
+        },
     },
 )

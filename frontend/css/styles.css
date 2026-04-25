@@ -3,12 +3,18 @@
 html, body { overflow-x: hidden; }
 
 :root {
+  /* ── Brand tokens (keep in sync with docs/styles.css) ── */
+  --brand:        #185FA5;
+  --brand-deep:   #0C447C;
+  --brand-light:  #378ADD;
+  --brand-ink:    #ffffff;
+
   --bg: #0f1117;
   --surface: #1a1d27;
   --surface2: #22263a;
   --border: #2e3350;
-  --accent: #4f8ef7;
-  --accent-hover: #6ba3ff;
+  --accent: #378ADD;
+  --accent-hover: #5a9de6;
   --green: #3ecf8e;
   --red: #f66;
   --yellow: #f5a623;
@@ -30,7 +36,9 @@ a:hover { color: var(--accent-hover); }
   background: var(--surface); border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 100; gap: 4px;
 }
-.nav-brand { font-size: 16px; font-weight: 700; white-space: nowrap; flex: 1; }
+.nav-brand { display: inline-flex; align-items: center; gap: 9px; white-space: nowrap; flex: 1; text-decoration: none; }
+.nav-mark  { width: 28px; height: 28px; flex-shrink: 0; }
+.nav-wordmark { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
 .nav-links { display: flex; flex-direction: row; gap: 4px; }
 .nav-link {
   display: inline-flex; align-items: center; gap: 6px;
@@ -54,7 +62,7 @@ a:hover { color: var(--accent-hover); }
   text-decoration: none; transition: color .15s;
 }
 .tab-item.active, .tab-item:hover { color: var(--accent); }
-.tab-icon { font-size: 20px; line-height: 1; }
+.tab-icon { width: 22px; height: 22px; }
 .tab-label { font-size: 10px; }
 
 @media (max-width: 767px) {
@@ -231,8 +239,8 @@ tbody tr:hover { background: var(--surface2); }
 
 /* ── Vault hero ───────────────────────────────────────────────── */
 .vault-hero {
-  background: linear-gradient(135deg, #1e2035 0%, #252840 60%, #2a2040 100%);
-  border: 1px solid #4a3a20;
+  background: linear-gradient(135deg, #0a1a2e 0%, #0f2035 60%, #0d1a30 100%);
+  border: 1px solid #1a3050;
   border-radius: var(--radius);
   padding: 24px 28px;
   margin-bottom: 20px;

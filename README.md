@@ -2,6 +2,8 @@
 
 **A personal, local-only tracker for your HSA receipts and expenses.**
 
+[stowe.health](https://stowe.health) · [Releases](https://github.com/Conkay1/Stowe/releases) · MIT License
+
 Stowe is a small desktop app for people who pay medical bills out-of-pocket with an HSA and want to defer reimbursement until later — possibly years later. The IRS lets you do this, but only if you can still produce the receipts when you pull the money out. That's what Stowe keeps track of.
 
 Your data lives on your computer. Nothing is sent to a server. No account, no sync, no telemetry.
@@ -32,7 +34,7 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 
 ### macOS (recommended)
 
-1. Download `Stowe-0.1.0.dmg` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
+1. Download `Stowe-0.2.0.dmg` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
 2. Open the DMG and drag **Stowe** into **Applications**.
 3. **First launch:** because this build is unsigned, macOS will say *"Stowe can't be opened because Apple cannot check it for malicious software."* This is expected. Bypass it once:
    - **Option A:** Right-click `Stowe.app` → **Open** → confirm **Open** in the dialog.
@@ -47,7 +49,7 @@ Requires Python 3.10 or newer.
 
 ```bash
 git clone https://github.com/Conkay1/Stowe.git
-cd stowe
+cd Stowe
 python3 run.py
 ```
 
@@ -92,7 +94,25 @@ pytest
 - SQLite via SQLAlchemy 2.x
 - Vanilla JavaScript frontend (no build step, no npm)
 - Uvicorn ASGI server
+- pywebview — native WKWebView window when packaged
 - PWA-ready (manifest + service worker for offline cache)
+
+---
+
+## Building the macOS app
+
+```bash
+pip install pyinstaller pywebview
+python -m PyInstaller stowe.spec --noconfirm
+# .app lands in dist/Stowe/
+```
+
+To package as a DMG:
+
+```bash
+hdiutil create -volname "Stowe" -srcfolder "dist/Stowe" \
+  -ov -format UDZO "Stowe-0.2.0.dmg"
+```
 
 ---
 
