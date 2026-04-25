@@ -53,5 +53,6 @@ export const api = {
   },
   summary:     () => get("/summary"),
   annualLedger: () => get("/annual-ledger"),
-  csvUrl: (year) => year ? `${BASE}/export/csv?year=${year}` : `${BASE}/export/csv`,
+  csvUrl:    (year) => year ? `${BASE}/export/csv?year=${year}` : `${BASE}/export/csv`,
+  backupUrl: ()     => `${BASE}/export/zip`,
 };

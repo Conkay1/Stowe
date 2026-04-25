@@ -2,6 +2,7 @@ import csv
 import io
 import re
 import uuid
+import zipfile
 from datetime import date
 from pathlib import Path
 from typing import Optional
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session
 from backend.db import get_db
 from backend.models import HSAExpense, Receipt, ReimbursementLineItem
 from backend.schemas import ExpenseCreate, ExpenseOut, ExpenseUpdate, LedgerYear, ReceiptOut, VaultSummary
-from config import HSA_CATEGORIES, RECEIPTS_DIR
+from config import DATABASE_PATH, HSA_CATEGORIES, RECEIPTS_DIR
 
 router = APIRouter(prefix="/api/v1", tags=["expenses"])
 
@@ -314,6 +315,25 @@ def export_csv(year: Optional[int] = None, db: Session = Depends(get_db)):
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/export/zip")
+def export_zip():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        if DATABASE_PATH.exists():
+            zf.write(DATABASE_PATH, "stowe.db")
+        if RECEIPTS_DIR.exists():
+            for f in RECEIPTS_DIR.iterdir():
+                if f.is_file():
+                    zf.write(f, f"receipts/{f.name}")
+    buf.seek(0)
+    filename = f"stowe-backup-{date.today()}.zip"
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
