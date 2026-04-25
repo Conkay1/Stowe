@@ -41,7 +41,13 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
    - **Option B:** Open **System Settings → Privacy & Security**, scroll to the "Stowe was blocked" message, click **Open Anyway**.
    Subsequent launches work normally.
 
-Windows installer is on the way.
+### Windows
+
+1. Download `Stowe-0.5.0-windows-setup.exe` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
+2. Run the installer and follow the prompts. No administrator rights are required — Stowe installs to `%LOCALAPPDATA%\Programs\Stowe\`.
+3. A Start Menu entry and an optional Desktop shortcut are created automatically.
+4. **Prerequisite:** Microsoft Edge WebView2 Runtime. It ships pre-installed with Windows 10 (version 1803 or later) and Windows 11. If needed, download it from [microsoft.com/edge/webview2](https://developer.microsoft.com/microsoft-edge/webview2/).
+5. Data lives at `%APPDATA%\Stowe\` (database + receipts). To back up, copy that folder.
 
 ### From source
 
