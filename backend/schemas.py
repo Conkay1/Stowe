@@ -71,6 +71,7 @@ class ExpenseOut(BaseModel):
     notes: Optional[str]
     reimbursed: bool
     reimbursed_date: Optional[date]
+    reimbursement_id: Optional[int] = None
     created_at: datetime
     receipts: list[ReceiptOut] = []
 
@@ -92,3 +93,49 @@ class LedgerYear(BaseModel):
     total_reimbursed: float
     total_unreimbursed: float
     receipt_completeness_pct: float
+
+
+# ── Reimbursement Pull Events ────────────────────────────────────────────────
+
+class ReimbursementCreate(BaseModel):
+    date: date
+    reference: Optional[str] = None
+    notes: Optional[str] = None
+    expense_ids: list[int]
+
+    @field_validator("expense_ids")
+    @classmethod
+    def expense_ids_must_be_non_empty(cls, v: list[int]) -> list[int]:
+        if not v:
+            raise ValueError("expense_ids must contain at least one expense")
+        # Dedupe while preserving order
+        seen: set[int] = set()
+        unique: list[int] = []
+        for eid in v:
+            if eid not in seen:
+                seen.add(eid)
+                unique.append(eid)
+        return unique
+
+    @field_validator("date")
+    @classmethod
+    def date_not_in_future(cls, v: date) -> date:
+        if v > date.today():
+            raise ValueError("Pull date cannot be in the future")
+        return v
+
+
+class ReimbursementListItem(BaseModel):
+    id: int
+    date: date
+    reference: Optional[str]
+    notes: Optional[str]
+    expense_count: int
+    total_amount: float
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ReimbursementOut(ReimbursementListItem):
+    expenses: list[ExpenseOut] = []

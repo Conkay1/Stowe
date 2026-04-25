@@ -32,12 +32,15 @@ overlay.addEventListener("click", e => { if (e.target === overlay) closeModal();
 const PAGES = {
   vault:  () => import("./pages/vault.js"),
   add:    () => import("./pages/add.js"),
+  pulls:  () => import("./pages/pulls.js"),
   ledger: () => import("./pages/ledger.js"),
 };
 
 async function route() {
   const hash = location.hash.slice(2) || "vault";
-  const page = hash.split("?")[0].split("/")[0];
+  const segments = hash.split("?")[0].split("/").filter(Boolean);
+  const page = segments[0] || "vault";
+  const params = segments.slice(1);
 
   document.querySelectorAll("[data-page]").forEach(el =>
     el.classList.toggle("active", el.dataset.page === page)
@@ -48,7 +51,7 @@ async function route() {
   appEl.innerHTML = "";
   try {
     const mod = await loader();
-    await mod.render(appEl);
+    await mod.render(appEl, params);
   } catch (err) {
     appEl.innerHTML = `<div class="empty-state">Failed to load page: ${err.message}</div>`;
   }

@@ -223,16 +223,29 @@ async function showManageModal(id) {
         <label>Notes</label>
         <textarea name="notes" rows="2">${esc(expense.notes || "")}</textarea>
       </div>
-      <div class="form-group">
-        <label style="display:flex;align-items:center;gap:8px;flex-direction:row">
-          <input type="checkbox" name="reimbursed" id="reimb-check" style="width:auto" ${expense.reimbursed ? "checked" : ""}>
-          <span>Mark as reimbursed</span>
-        </label>
-      </div>
-      <div class="form-group" id="reimb-date-wrap" style="${expense.reimbursed ? "" : "display:none"}">
-        <label>Reimbursement date</label>
-        <input type="date" name="reimbursed_date" value="${expense.reimbursed_date || new Date().toISOString().slice(0,10)}">
-      </div>
+      ${expense.reimbursement_id ? `
+        <div class="form-group">
+          <label>Reimbursement</label>
+          <a href="#/pulls/${expense.reimbursement_id}" class="pull-link-badge" id="pull-badge-link">
+            <span class="badge badge-reimbursed">Part of Pull</span>
+            <span style="font-size:13px">on ${fmtDate(expense.reimbursed_date)} · view pull →</span>
+          </a>
+          <p class="text-muted" style="font-size:12px;margin-top:6px">
+            To unmark, undo the pull from the Pulls page.
+          </p>
+        </div>
+      ` : `
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;flex-direction:row">
+            <input type="checkbox" name="reimbursed" id="reimb-check" style="width:auto" ${expense.reimbursed ? "checked" : ""}>
+            <span>Mark as reimbursed</span>
+          </label>
+        </div>
+        <div class="form-group" id="reimb-date-wrap" style="${expense.reimbursed ? "" : "display:none"}">
+          <label>Reimbursement date</label>
+          <input type="date" name="reimbursed_date" value="${expense.reimbursed_date || new Date().toISOString().slice(0,10)}">
+        </div>
+      `}
       <div style="display:flex;gap:8px;margin-bottom:20px">
         <button type="submit" class="btn btn-primary">Save Changes</button>
         <button type="button" id="delete-btn" class="btn btn-danger">Delete</button>
@@ -250,10 +263,13 @@ async function showManageModal(id) {
     </div>
   `);
 
-  // Toggle reimbursement date
-  document.getElementById("reimb-check").addEventListener("change", e => {
-    document.getElementById("reimb-date-wrap").style.display = e.target.checked ? "" : "none";
-  });
+  // Toggle reimbursement date — only present when the expense isn't part of a pull
+  const reimbCheck = document.getElementById("reimb-check");
+  if (reimbCheck) {
+    reimbCheck.addEventListener("change", e => {
+      document.getElementById("reimb-date-wrap").style.display = e.target.checked ? "" : "none";
+    });
+  }
 
   // Save form
   document.getElementById("manage-form").addEventListener("submit", async e => {
@@ -265,10 +281,13 @@ async function showManageModal(id) {
       amount: parseFloat(fd.get("amount")),
       category: fd.get("category"),
       notes: fd.get("notes") || null,
-      reimbursed: fd.get("reimbursed") === "on",
     };
-    if (body.reimbursed && fd.get("reimbursed_date")) {
-      body.reimbursed_date = fd.get("reimbursed_date");
+    // Reimbursement is only editable here when the expense isn't part of a pull.
+    if (!expense.reimbursement_id) {
+      body.reimbursed = fd.get("reimbursed") === "on";
+      if (body.reimbursed && fd.get("reimbursed_date")) {
+        body.reimbursed_date = fd.get("reimbursed_date");
+      }
     }
     try {
       await api.expenses.update(id, body);

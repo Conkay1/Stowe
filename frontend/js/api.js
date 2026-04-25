@@ -45,6 +45,12 @@ export const api = {
     remove:  (id) => del(`/receipts/${id}`),
     fileUrl: (id) => `${BASE}/receipts/${id}/file`,
   },
+  reimbursements: {
+    list:   ()       => get("/reimbursements"),
+    get:    (id)     => get(`/reimbursements/${id}`),
+    create: (body)   => post("/reimbursements", body),
+    remove: (id)     => del(`/reimbursements/${id}`),
+  },
   summary:     () => get("/summary"),
   annualLedger: () => get("/annual-ledger"),
   csvUrl: (year) => year ? `${BASE}/export/csv?year=${year}` : `${BASE}/export/csv`,

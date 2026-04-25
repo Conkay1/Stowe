@@ -311,6 +311,18 @@ tbody tr:hover { background: var(--surface2); }
 .empty-state { padding: 48px; text-align: center; color: var(--muted); }
 .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 
+/* ── Pull badge link (in expense manage modal) ────────────────── */
+.pull-link-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  text-decoration: none; color: var(--text);
+  padding: 8px 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color .15s;
+}
+.pull-link-badge:hover { border-color: var(--brand-light); }
+.pull-link-badge .badge { font-size: 11px; }
+
 /* ── Mobile ───────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   #app { padding: 12px; }
