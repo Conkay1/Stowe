@@ -143,15 +143,25 @@ function renderList() {
   const cards = document.getElementById("expense-cards");
 
   filtered.forEach(e => {
+    const covered = e.covered_amount ?? 0;
+    const remaining = e.remaining_amount ?? e.amount;
+    const partial = !e.reimbursed && covered > 0.005;
+
     const statusBadge = e.reimbursed
       ? `<span class="badge badge-reimbursed">Reimbursed</span>`
       : `<span class="badge badge-unreimbursed">In Vault</span>`;
     const receiptBadge = `<span class="badge badge-receipt" data-manage="${e.id}">📎 ${e.receipts.length}</span>`;
+    const partialNote = partial
+      ? `<div class="expense-partial-note">Partially pulled — ${fmt(remaining)} remaining of ${fmt(e.amount)}</div>`
+      : "";
 
     // Table row
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><strong>${esc(e.merchant)}</strong></td>
+      <td>
+        <strong>${esc(e.merchant)}</strong>
+        ${partialNote}
+      </td>
       <td>${fmtDate(e.date)}</td>
       <td><span class="badge badge-category">${esc(e.category)}</span></td>
       <td class="col-amount" style="color:var(--red)">${fmt(e.amount)}</td>
@@ -168,6 +178,7 @@ function renderList() {
       <div class="expense-card-info">
         <div class="expense-card-merchant">${esc(e.merchant)}</div>
         <div class="expense-card-meta">${fmtDate(e.date)} · <span class="badge badge-category" style="font-size:10px">${esc(e.category)}</span></div>
+        ${partialNote}
       </div>
       <div class="expense-card-right">
         <span class="expense-card-amount">${fmt(e.amount)}</span>
@@ -180,6 +191,18 @@ function renderList() {
     `;
     cards.appendChild(card);
   });
+
+  // Inject partial-note style once.
+  if (!document.getElementById("vault-partial-style")) {
+    const s = document.createElement("style");
+    s.id = "vault-partial-style";
+    s.textContent = `
+      .expense-partial-note {
+        font-size: 11px; color: var(--green); margin-top: 3px; font-weight: 500;
+      }
+    `;
+    document.head.appendChild(s);
+  }
 
   // Event delegation for manage buttons and receipt badges
   [tbody, cards].forEach(container => {
@@ -223,22 +246,22 @@ async function showManageModal(id) {
         <label>Notes</label>
         <textarea name="notes" rows="2">${esc(expense.notes || "")}</textarea>
       </div>
-      ${expense.reimbursement_id ? `
+      ${(expense.covered_amount ?? 0) > 0.005 ? `
         <div class="form-group">
           <label>Reimbursement</label>
-          <a href="#/pulls/${expense.reimbursement_id}" class="pull-link-badge" id="pull-badge-link">
-            <span class="badge badge-reimbursed">Part of Pull</span>
-            <span style="font-size:13px">on ${fmtDate(expense.reimbursed_date)} · view pull →</span>
-          </a>
+          <div class="pull-coverage-summary">
+            <span class="badge badge-reimbursed">${expense.reimbursed ? "Fully covered" : "Partially covered"}</span>
+            <span style="font-size:13px">${fmt(expense.covered_amount)} of ${fmt(expense.amount)} pulled across ${expense.pull_count} pull${expense.pull_count !== 1 ? "s" : ""}</span>
+          </div>
           <p class="text-muted" style="font-size:12px;margin-top:6px">
-            To unmark, undo the pull from the Pulls page.
+            <a href="#/pulls">View pulls →</a> &nbsp;·&nbsp; To unmark, undo the relevant pull(s).
           </p>
         </div>
       ` : `
         <div class="form-group">
           <label style="display:flex;align-items:center;gap:8px;flex-direction:row">
             <input type="checkbox" name="reimbursed" id="reimb-check" style="width:auto" ${expense.reimbursed ? "checked" : ""}>
-            <span>Mark as reimbursed</span>
+            <span>Mark as reimbursed (without a pull)</span>
           </label>
         </div>
         <div class="form-group" id="reimb-date-wrap" style="${expense.reimbursed ? "" : "display:none"}">
@@ -282,8 +305,8 @@ async function showManageModal(id) {
       category: fd.get("category"),
       notes: fd.get("notes") || null,
     };
-    // Reimbursement is only editable here when the expense isn't part of a pull.
-    if (!expense.reimbursement_id) {
+    // Reimbursement toggle is only editable when there's no pull-backed coverage.
+    if ((expense.covered_amount ?? 0) <= 0.005) {
       body.reimbursed = fd.get("reimbursed") === "on";
       if (body.reimbursed && fd.get("reimbursed_date")) {
         body.reimbursed_date = fd.get("reimbursed_date");
