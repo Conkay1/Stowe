@@ -6,7 +6,10 @@ export async function render(container) {
   container.innerHTML = `
     <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
       <h2 style="margin:0">Annual Ledger</h2>
-      <a id="export-all-csv" href="${api.csvUrl()}" class="btn btn-secondary" download>Export CSV</a>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="${api.backupUrl()}" class="btn btn-secondary" download>Download Backup</a>
+        <a id="export-all-csv" href="${api.csvUrl()}" class="btn btn-secondary" download>Export CSV</a>
+      </div>
     </div>
     <div id="ledger-content"><div class="empty-state">Loading…</div></div>
   `;
