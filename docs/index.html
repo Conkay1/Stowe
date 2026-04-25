@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stowe — Keep every HSA receipt. Reimburse yourself whenever.</title>
+  <meta name="description" content="A free, local-only desktop app for tracking HSA medical expenses and receipts. Your data stays on your Mac. Open source.">
+  <meta name="theme-color" content="#0C447C">
+
+  <!-- Open Graph / social -->
+  <meta property="og:title" content="Stowe — HSA receipts, kept on your Mac">
+  <meta property="og:description" content="Track HSA medical expenses with receipts that stay on your computer. Free and open source.">
+  <meta property="og:image" content="https://stowe.health/og-image.png">
+  <meta property="og:url" content="https://stowe.health">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="canonical" href="https://stowe.health">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+  <!-- ── Top bar ───────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a href="/" class="brand" aria-label="Stowe — home">
+        <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+          <rect x="2" y="2" width="36" height="36" rx="10" fill="#185FA5"/>
+          <path d="M9 30 C13 30 20 10 31 10" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <circle cx="31" cy="10" r="3" fill="white"/>
+        </svg>
+        <span class="brand-name">stowe</span>
+      </a>
+      <nav class="topbar-links">
+        <a href="#why">Why Stowe</a>
+        <a href="#install">Install</a>
+        <a href="#faq">FAQ</a>
+        <a class="btn btn-primary" href="https://github.com/Conkay1/Stowe/releases/latest">Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ── Hero ──────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="container">
+      <svg class="mark-xl" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <rect x="2" y="2" width="36" height="36" rx="10" fill="#185FA5"/>
+        <path d="M9 30 C13 30 20 10 31 10" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <circle cx="31" cy="10" r="3" fill="white"/>
+      </svg>
+      <h1>Keep every HSA receipt.<br><span class="accent">Reimburse yourself whenever.</span></h1>
+      <p class="lead">
+        Stowe is a tiny desktop app that tracks the medical expenses you paid out-of-pocket so you can
+        reimburse yourself from your HSA later — months or decades from now. Your data lives on your computer. Nothing is sent to a server.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="https://github.com/Conkay1/Stowe/releases/latest">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.5a.75.75 0 0 1 .75.75v6.69l1.97-1.97a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 8.03a.75.75 0 0 1 1.06-1.06l1.97 1.97V2.25A.75.75 0 0 1 8 1.5ZM2.75 12a.75.75 0 0 1 .75.75V14h9v-1.25a.75.75 0 0 1 1.5 0v1.5A1.25 1.25 0 0 1 12.75 15.5h-9.5A1.25 1.25 0 0 1 2 14.25v-1.5a.75.75 0 0 1 .75-.75Z"/></svg>
+          Download for macOS
+        </a>
+        <a class="btn btn-secondary" href="https://github.com/Conkay1/Stowe">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <div class="hero-meta">
+        <span><span class="dot">●</span> Free &amp; open source</span>
+        <span><span class="dot">●</span> Local-only — no cloud</span>
+        <span><span class="dot">●</span> macOS · Windows soon</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Why ───────────────────────────────────────────────────── -->
+  <section id="why">
+    <div class="container">
+      <p class="section-eyebrow">Why Stowe</p>
+      <h2 class="section-title">Built for the long-term HSA play</h2>
+      <p class="section-sub">
+        The IRS lets you reimburse yourself from your HSA years after the expense — but only if you can still produce the receipt. Stowe keeps that proof in one tidy place.
+      </p>
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2 4 6v6c0 4.4 3.4 8.5 8 10 4.6-1.5 8-5.6 8-10V6l-8-4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>Your data stays on your Mac</h3>
+          <p>Stowe is local-first by design. No account, no sync, no telemetry. The database is a single SQLite file you fully own.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 9h8M8 13h8M8 17h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Receipt for every expense</h3>
+          <p>Snap a photo, drop a PDF, or upload a scan. Stowe links each receipt to the right expense so the audit trail is always intact.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 13c1.5-2 3.5-3 6-3s4.5 1 6 3 3.5 3 6 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 19c1.5-2 3.5-3 6-3s4.5 1 6 3 3.5 3 6 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7V3M9 5l3-2 3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>CSV export for tax time</h3>
+          <p>Per-year and all-time exports drop straight into your spreadsheet or accountant's inbox. Reimburse, file, and move on.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Screenshots ───────────────────────────────────────────── -->
+  <section id="screenshots">
+    <div class="container">
+      <p class="section-eyebrow">A look inside</p>
+      <h2 class="section-title">Quiet, focused, exactly enough</h2>
+      <p class="section-sub">No dashboards you'll never look at. Three pages: log, review, export.</p>
+      <div class="shots">
+        <div class="shot">
+          <img src="/screenshots/vault.png" alt="Stowe Vault page" onerror="this.style.display='none'">
+          <span class="shot-label">Vault</span>
+        </div>
+        <div class="shot">
+          <img src="/screenshots/add.png" alt="Stowe Add Expense page" onerror="this.style.display='none'">
+          <span class="shot-label">Add Expense</span>
+        </div>
+        <div class="shot">
+          <img src="/screenshots/ledger.png" alt="Stowe Annual Ledger page" onerror="this.style.display='none'">
+          <span class="shot-label">Annual Ledger</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Install ───────────────────────────────────────────────── -->
+  <section id="install">
+    <div class="container">
+      <p class="section-eyebrow">Install</p>
+      <h2 class="section-title">Two ways to run it</h2>
+      <p class="section-sub">Use the macOS DMG for the desktop app, or run from source if you'd rather see the code.</p>
+      <div class="install-grid">
+        <div class="install-step">
+          <h3>macOS app</h3>
+          <ol>
+            <li>Download the latest <code>Stowe-x.y.z.dmg</code> from <a href="https://github.com/Conkay1/Stowe/releases/latest">Releases</a>.</li>
+            <li>Open the DMG and drag <strong>Stowe</strong> into <strong>Applications</strong>.</li>
+            <li>First launch: macOS will warn the build is unsigned. Right-click <code>Stowe.app</code> → <strong>Open</strong> → confirm <strong>Open</strong>. Subsequent launches work normally.</li>
+          </ol>
+          <p style="margin-top:12px; color: var(--muted); font-size: 14px;">
+            The app keeps your database at <code>~/Library/Application&nbsp;Support/Stowe/</code>.
+          </p>
+        </div>
+        <div class="install-step">
+          <h3>From source</h3>
+          <p style="color: var(--muted); margin-bottom: 4px;">Requires Python 3.10+.</p>
+          <pre>git clone https://github.com/Conkay1/Stowe.git
+cd Stowe
+python3 run.py</pre>
+          <p style="margin-top:12px; color: var(--muted); font-size: 14px;">
+            <code>run.py</code> installs deps, opens the app in your browser, and prints a LAN URL so you can snap receipts from your phone on the same WiFi.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FAQ ───────────────────────────────────────────────────── -->
+  <section id="faq">
+    <div class="container">
+      <p class="section-eyebrow">FAQ</p>
+      <h2 class="section-title">Quick answers</h2>
+      <div class="faq">
+        <details>
+          <summary>Where exactly is my data stored?</summary>
+          <p>On macOS the app keeps two things: a SQLite database at <code>~/Library/Application Support/Stowe/database/stowe.db</code> and your receipt files at <code>~/Library/Application Support/Stowe/receipts/</code>. To back up, copy that folder. To wipe everything, delete it.</p>
+        </details>
+        <details>
+          <summary>Does Stowe send anything over the internet?</summary>
+          <p>No. There's no server, no analytics, no auto-update calls, no telemetry. The app runs a tiny web server bound to <code>localhost</code> only.</p>
+        </details>
+        <details>
+          <summary>Why is it free? What's the catch?</summary>
+          <p>No catch. Stowe is open source under MIT and built as a personal project. It will likely stay small — "do one thing well" is the goal, not "become the Expensify of HSAs."</p>
+        </details>
+        <details>
+          <summary>Is there a Windows or Linux version?</summary>
+          <p>The macOS DMG is shipping first. Windows is on the roadmap. On Linux you can run from source today.</p>
+        </details>
+        <details>
+          <summary>How do I back up my data?</summary>
+          <p>Copy the <code>~/Library/Application Support/Stowe/</code> folder anywhere — iCloud Drive, Dropbox, an external drive. Both the SQLite DB and the receipts back up cleanly. To restore, copy it back.</p>
+        </details>
+        <details>
+          <summary>Can I use Stowe for tax advice?</summary>
+          <p>No — Stowe is a record-keeping tool, not tax advice. Consult IRS Publication 969 and a tax professional for what qualifies as a reimbursable medical expense.</p>
+        </details>
+        <details>
+          <summary>What happens if I lose my computer?</summary>
+          <p>Whatever you didn't back up is gone. That's the trade-off for keeping nothing in the cloud. Drop the data folder inside iCloud Drive or Dropbox to get cross-machine backup without giving up local-first.</p>
+        </details>
+      </div>
+
+      <div class="disclaimer">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" style="flex-shrink:0; color: var(--brand);" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span><strong>Not tax advice.</strong> Stowe helps you keep records — what counts as a qualified medical expense is up to the IRS and your accountant.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="container">
+      <a href="/" class="brand" aria-label="Stowe — home">
+        <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+          <rect x="2" y="2" width="36" height="36" rx="10" fill="#FFFFFF"/>
+          <path d="M9 30 C13 30 20 10 31 10" stroke="#0C447C" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <circle cx="31" cy="10" r="3" fill="#0C447C"/>
+        </svg>
+        <span class="brand-name">stowe</span>
+      </a>
+      <div class="footer-links">
+        <a href="https://github.com/Conkay1/Stowe">GitHub</a>
+        <a href="https://github.com/Conkay1/Stowe/releases">Releases</a>
+        <a href="https://github.com/Conkay1/Stowe/blob/main/LICENSE">MIT License</a>
+        <a href="https://github.com/Conkay1/Stowe/issues">Issues</a>
+      </div>
+      <div class="footer-meta">
+        © 2026 Connor Kay. Stowe is open source under the MIT License. Not affiliated with the IRS or any HSA provider.
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

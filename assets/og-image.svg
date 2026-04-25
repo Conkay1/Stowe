@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#FAFBFC"/>
+  <rect x="100" y="180" width="180" height="180" rx="50" fill="#185FA5"/>
+  <path d="M135 320 C155 320 190 220 245 220" stroke="white" stroke-width="12.5" stroke-linecap="round" fill="none"/>
+  <circle cx="245" cy="220" r="15" fill="white"/>
+  <text x="320" y="295" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" font-size="120" font-weight="400" letter-spacing="-1.2" fill="#0C447C">stowe</text>
+  <text x="100" y="450" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" font-size="36" font-weight="400" fill="#185FA5">Keep every HSA receipt.</text>
+  <text x="100" y="500" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" font-size="36" font-weight="400" fill="#185FA5">Reimburse yourself whenever.</text>
+  <text x="100" y="570" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" font-size="22" font-weight="400" fill="#378ADD">Local-only · Free · Open source · stowe.health</text>
+</svg>

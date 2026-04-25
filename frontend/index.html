@@ -6,13 +6,23 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Stowe — HSA receipts</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16.png">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="manifest" href="/static/manifest.json">
   <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
 
   <nav class="topnav">
-    <span class="nav-brand">🏥 Stowe</span>
+    <span class="nav-brand">
+      <svg class="nav-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <rect x="2" y="2" width="36" height="36" rx="10" fill="#185FA5"/>
+        <path d="M9 30 C13 30 20 10 31 10" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <circle cx="31" cy="10" r="3" fill="white"/>
+      </svg>
+      <span class="nav-wordmark">stowe</span>
+    </span>
     <div class="nav-links">
       <a href="#/vault"  class="nav-link" data-page="vault">Vault</a>
       <a href="#/add"    class="nav-link" data-page="add">+ Add</a>
@@ -24,15 +34,24 @@
 
   <nav class="tab-bar">
     <a href="#/vault"  class="tab-item" data-page="vault">
-      <span class="tab-icon">🏦</span>
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 11 L12 5 L20 11 V20 H4 Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/>
+        <path d="M10 20 V13 H14 V20" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/>
+      </svg>
       <span class="tab-label">Vault</span>
     </a>
     <a href="#/add"    class="tab-item" data-page="add">
-      <span class="tab-icon">➕</span>
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none"/>
+        <path d="M12 8 V16 M8 12 H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
       <span class="tab-label">Add</span>
     </a>
     <a href="#/ledger" class="tab-item" data-page="ledger">
-      <span class="tab-icon">📋</span>
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="5" y="3" width="14" height="18" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/>
+        <path d="M9 8 H15 M9 12 H15 M9 16 H13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
       <span class="tab-label">Ledger</span>
     </a>
   </nav>
