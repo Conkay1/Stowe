@@ -25,14 +25,18 @@ a = Analysis(
         # multipart
         'python_multipart',
         'multipart',
-        # pywebview
+        # pywebview — platforms live at webview.platforms.*
         'webview',
         'webview.platforms.cocoa',
-        'webview.platforms.winforms',
+        'webview.platforms.edgechromium',
         'webview.platforms.gtk',
         'webview.platforms.qt',
+        'webview.platforms.mshtml',
+        'webview.platforms.win32',
+        'webview.platforms.winforms',
+        'webview.platforms.cef',
     ],
-    hookspath=[],
+    hookspath=['/opt/homebrew/lib/python3.11/site-packages/webview/__pyinstaller'],
     hooksconfig={},
     runtime_hooks=[],
     excludes=['tkinter', 'matplotlib', 'numpy', 'pandas', 'pytest'],
