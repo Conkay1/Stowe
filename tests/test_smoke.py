@@ -117,6 +117,11 @@ def test_summary_and_annual_ledger(client):
 # ── Reimbursement Pull Events ────────────────────────────────────────────────
 
 
+def _full_pull(eid, amount):
+    """Helper: line item covering an expense fully."""
+    return {"expense_id": eid, "covered_amount": amount}
+
+
 def test_create_pull_marks_expenses_reimbursed(client):
     e1 = _make_expense(client, merchant="A", amount=10, date="2026-01-10")
     e2 = _make_expense(client, merchant="B", amount=20, date="2026-01-11")
@@ -126,7 +131,12 @@ def test_create_pull_marks_expenses_reimbursed(client):
         "date": "2026-04-01",
         "reference": "TEST-001",
         "notes": "Q1 reimbursement",
-        "expense_ids": [e1["id"], e2["id"], e3["id"]],
+        "total_amount": 60.0,
+        "line_items": [
+            _full_pull(e1["id"], 10),
+            _full_pull(e2["id"], 20),
+            _full_pull(e3["id"], 30),
+        ],
     })
     assert res.status_code == 201, res.text
     pull = res.json()
@@ -134,41 +144,57 @@ def test_create_pull_marks_expenses_reimbursed(client):
     assert pull["total_amount"] == 60.0
     assert pull["reference"] == "TEST-001"
     assert pull["date"] == "2026-04-01"
-    assert len(pull["expenses"]) == 3
+    assert len(pull["line_items"]) == 3
 
-    # Each linked expense should be reimbursed with the pull's date and id.
-    for e in pull["expenses"]:
+    # Each linked expense should be reimbursed with the pull's date.
+    for eid in (e1["id"], e2["id"], e3["id"]):
+        e = client.get(f"/api/v1/expenses/{eid}").json()
         assert e["reimbursed"] is True
         assert e["reimbursed_date"] == "2026-04-01"
-        assert e["reimbursement_id"] == pull["id"]
+        assert e["covered_amount"] == e["amount"]
+        assert e["remaining_amount"] == 0.0
+        assert e["pull_count"] == 1
 
 
-def test_create_pull_rejects_already_reimbursed(client):
+def test_create_pull_rejects_manually_marked_reimbursed(client):
     e = _make_expense(client)
     client.put(f"/api/v1/expenses/{e['id']}", json={"reimbursed": True})
 
     res = client.post("/api/v1/reimbursements", json={
         "date": "2026-04-01",
-        "expense_ids": [e["id"]],
+        "total_amount": e["amount"],
+        "line_items": [_full_pull(e["id"], e["amount"])],
     })
     assert res.status_code == 400
-    assert "already reimbursed" in res.json()["detail"].lower()
+    assert "manually marked" in res.json()["detail"].lower()
 
 
 def test_create_pull_rejects_unknown_expense_id(client):
     e = _make_expense(client)
     res = client.post("/api/v1/reimbursements", json={
         "date": "2026-04-01",
-        "expense_ids": [e["id"], 99999],
+        "total_amount": e["amount"] + 5.0,
+        "line_items": [_full_pull(e["id"], e["amount"]), _full_pull(99999, 5.0)],
     })
     assert res.status_code == 400
     assert "unknown" in res.json()["detail"].lower()
 
 
-def test_create_pull_rejects_empty_list(client):
+def test_create_pull_rejects_empty_line_items(client):
     res = client.post("/api/v1/reimbursements", json={
         "date": "2026-04-01",
-        "expense_ids": [],
+        "total_amount": 10.0,
+        "line_items": [],
+    })
+    assert res.status_code == 422
+
+
+def test_create_pull_rejects_sum_mismatch(client):
+    e = _make_expense(client, amount=42.5)
+    res = client.post("/api/v1/reimbursements", json={
+        "date": "2026-04-01",
+        "total_amount": 50.0,
+        "line_items": [_full_pull(e["id"], 42.5)],
     })
     assert res.status_code == 422
 
@@ -177,9 +203,83 @@ def test_create_pull_rejects_future_date(client):
     e = _make_expense(client)
     res = client.post("/api/v1/reimbursements", json={
         "date": "2099-01-01",
-        "expense_ids": [e["id"]],
+        "total_amount": e["amount"],
+        "line_items": [_full_pull(e["id"], e["amount"])],
     })
     assert res.status_code == 422
+
+
+def test_partial_pull_leaves_remainder_in_vault(client):
+    e = _make_expense(client, amount=100.0)
+    pull = client.post("/api/v1/reimbursements", json={
+        "date": "2026-04-01",
+        "total_amount": 30.0,
+        "line_items": [{"expense_id": e["id"], "covered_amount": 30.0}],
+    }).json()
+
+    detail = client.get(f"/api/v1/expenses/{e['id']}").json()
+    assert detail["reimbursed"] is False
+    assert detail["covered_amount"] == 30.0
+    assert detail["remaining_amount"] == 70.0
+    assert detail["pull_count"] == 1
+
+    # Summary should reflect partial coverage.
+    summary = client.get("/api/v1/summary").json()
+    assert summary["total_reimbursed"] == 30.0
+    assert summary["total_unreimbursed"] == 70.0
+    # The expense is still in-vault (counted as unreimbursed since remaining > 0).
+    assert summary["count_unreimbursed"] == 1
+    assert summary["count_reimbursed"] == 0
+    assert pull["total_amount"] == 30.0
+
+
+def test_two_pulls_split_one_expense(client):
+    e = _make_expense(client, amount=100.0)
+    p1 = client.post("/api/v1/reimbursements", json={
+        "date": "2026-03-01",
+        "total_amount": 30.0,
+        "line_items": [{"expense_id": e["id"], "covered_amount": 30.0}],
+    }).json()
+    p2 = client.post("/api/v1/reimbursements", json={
+        "date": "2026-04-01",
+        "total_amount": 70.0,
+        "line_items": [{"expense_id": e["id"], "covered_amount": 70.0}],
+    }).json()
+
+    detail = client.get(f"/api/v1/expenses/{e['id']}").json()
+    assert detail["reimbursed"] is True
+    assert detail["covered_amount"] == 100.0
+    assert detail["remaining_amount"] == 0.0
+    assert detail["pull_count"] == 2
+    # Reimbursed date = the latest pull date.
+    assert detail["reimbursed_date"] == "2026-04-01"
+
+    # Undoing the later pull should drop the expense back to partial.
+    client.delete(f"/api/v1/reimbursements/{p2['id']}")
+    detail = client.get(f"/api/v1/expenses/{e['id']}").json()
+    assert detail["reimbursed"] is False
+    assert detail["covered_amount"] == 30.0
+    assert detail["remaining_amount"] == 70.0
+    assert detail["pull_count"] == 1
+    assert p1["total_amount"] == 30.0
+
+
+def test_create_pull_rejects_overflow(client):
+    e = _make_expense(client, amount=50.0)
+    # First pull covers $30 — leaves $20 remaining.
+    client.post("/api/v1/reimbursements", json={
+        "date": "2026-03-01",
+        "total_amount": 30.0,
+        "line_items": [{"expense_id": e["id"], "covered_amount": 30.0}],
+    })
+    # Second pull tries to cover $25 — would total $55 on a $50 expense.
+    res = client.post("/api/v1/reimbursements", json={
+        "date": "2026-04-01",
+        "total_amount": 25.0,
+        "line_items": [{"expense_id": e["id"], "covered_amount": 25.0}],
+    })
+    assert res.status_code == 400
+    assert "over-cover" in res.json()["detail"].lower()
 
 
 def test_list_pulls_orders_newest_first(client):
@@ -187,10 +287,14 @@ def test_list_pulls_orders_newest_first(client):
     e2 = _make_expense(client, merchant="B", amount=20, date="2026-01-11")
 
     older = client.post("/api/v1/reimbursements", json={
-        "date": "2026-02-01", "expense_ids": [e1["id"]],
+        "date": "2026-02-01",
+        "total_amount": 10.0,
+        "line_items": [_full_pull(e1["id"], 10)],
     }).json()
     newer = client.post("/api/v1/reimbursements", json={
-        "date": "2026-03-01", "expense_ids": [e2["id"]],
+        "date": "2026-03-01",
+        "total_amount": 20.0,
+        "line_items": [_full_pull(e2["id"], 20)],
     }).json()
 
     res = client.get("/api/v1/reimbursements")
@@ -201,19 +305,21 @@ def test_list_pulls_orders_newest_first(client):
     assert rows[1]["id"] == older["id"]
 
 
-def test_get_pull_returns_nested_expenses(client):
+def test_get_pull_returns_nested_line_items(client):
     e1 = _make_expense(client, merchant="A", amount=10)
     e2 = _make_expense(client, merchant="B", amount=20)
     pull = client.post("/api/v1/reimbursements", json={
-        "date": "2026-04-01", "expense_ids": [e1["id"], e2["id"]],
+        "date": "2026-04-01",
+        "total_amount": 30.0,
+        "line_items": [_full_pull(e1["id"], 10), _full_pull(e2["id"], 20)],
     }).json()
 
     res = client.get(f"/api/v1/reimbursements/{pull['id']}")
     assert res.status_code == 200
     data = res.json()
     assert data["id"] == pull["id"]
-    assert len(data["expenses"]) == 2
-    merchants = {e["merchant"] for e in data["expenses"]}
+    assert len(data["line_items"]) == 2
+    merchants = {li["merchant"] for li in data["line_items"]}
     assert merchants == {"A", "B"}
 
 
@@ -221,24 +327,23 @@ def test_delete_pull_unmarks_expenses(client):
     e1 = _make_expense(client, amount=50)
     e2 = _make_expense(client, amount=75)
     pull = client.post("/api/v1/reimbursements", json={
-        "date": "2026-04-01", "expense_ids": [e1["id"], e2["id"]],
+        "date": "2026-04-01",
+        "total_amount": 125.0,
+        "line_items": [_full_pull(e1["id"], 50), _full_pull(e2["id"], 75)],
     }).json()
 
-    # Before: both expenses reimbursed and linked.
     assert client.get("/api/v1/summary").json()["total_reimbursed"] == 125.0
 
     res = client.delete(f"/api/v1/reimbursements/{pull['id']}")
     assert res.status_code == 204
-
-    # Pull is gone.
     assert client.get(f"/api/v1/reimbursements/{pull['id']}").status_code == 404
 
-    # Expenses revert to unreimbursed with all three fields cleared.
     for eid in (e1["id"], e2["id"]):
         e = client.get(f"/api/v1/expenses/{eid}").json()
         assert e["reimbursed"] is False
         assert e["reimbursed_date"] is None
-        assert e["reimbursement_id"] is None
+        assert e["covered_amount"] == 0.0
+        assert e["remaining_amount"] == e["amount"]
 
     summary = client.get("/api/v1/summary").json()
     assert summary["total_reimbursed"] == 0.0
@@ -248,12 +353,26 @@ def test_delete_pull_unmarks_expenses(client):
 def test_summary_includes_pulled_expenses_in_reimbursed_total(client):
     e = _make_expense(client, amount=50)
     client.post("/api/v1/reimbursements", json={
-        "date": "2026-04-01", "expense_ids": [e["id"]],
+        "date": "2026-04-01",
+        "total_amount": 50.0,
+        "line_items": [_full_pull(e["id"], 50)],
     })
 
     summary = client.get("/api/v1/summary").json()
     assert summary["total_reimbursed"] == 50.0
     assert summary["count_reimbursed"] == 1
+
+
+def test_update_blocks_reimbursed_toggle_when_pull_backed(client):
+    e = _make_expense(client, amount=40)
+    client.post("/api/v1/reimbursements", json={
+        "date": "2026-04-01",
+        "total_amount": 40.0,
+        "line_items": [_full_pull(e["id"], 40)],
+    })
+    res = client.put(f"/api/v1/expenses/{e['id']}", json={"reimbursed": False})
+    assert res.status_code == 400
+    assert "backed by" in res.json()["detail"].lower()
 
 
 def test_csv_export(client):
