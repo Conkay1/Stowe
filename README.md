@@ -34,7 +34,7 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 
 ### macOS (recommended)
 
-1. Download `Stowe-0.2.0.dmg` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
+1. Download `Stowe-0.4.0.dmg` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
 2. Open the DMG and drag **Stowe** into **Applications**.
 3. **First launch:** because this build is unsigned, macOS will say *"Stowe can't be opened because Apple cannot check it for malicious software."* This is expected. Bypass it once:
    - **Option A:** Right-click `Stowe.app` → **Open** → confirm **Open** in the dialog.
@@ -111,7 +111,7 @@ To package as a DMG:
 
 ```bash
 hdiutil create -volname "Stowe" -srcfolder "dist/Stowe" \
-  -ov -format UDZO "Stowe-0.2.0.dmg"
+  -ov -format UDZO "Stowe-0.4.0.dmg"
 ```
 
 ---

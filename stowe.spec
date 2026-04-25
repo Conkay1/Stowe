@@ -81,8 +81,8 @@ app = BUNDLE(
     info_plist={
         'CFBundleName': 'Stowe',
         'CFBundleDisplayName': 'Stowe',
-        'CFBundleVersion': '0.3.0',
-        'CFBundleShortVersionString': '0.3.0',
+        'CFBundleVersion': '0.4.0',
+        'CFBundleShortVersionString': '0.4.0',
         'NSHighResolutionCapable': True,
         'LSMinimumSystemVersion': '11.0',
         'NSHumanReadableCopyright': 'Copyright (c) 2026 Connor Kay. MIT License.',
