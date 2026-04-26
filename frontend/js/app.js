@@ -34,6 +34,7 @@ const PAGES = {
   add:    () => import("./pages/add.js"),
   pulls:  () => import("./pages/pulls.js"),
   ledger: () => import("./pages/ledger.js"),
+  settings: () => import("./pages/settings.js"),
 };
 
 async function route() {
@@ -59,7 +60,8 @@ async function route() {
 
 // ── Init ───────────────────────────────────────────────────────
 (async () => {
-  state.categories = await api.categories.list().catch(() => []);
+  const rawCats = await api.categories.list().catch(() => []);
+  state.categories = rawCats.map(c => c.name || c);
   window.addEventListener("hashchange", route);
   route();
 

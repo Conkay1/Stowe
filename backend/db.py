@@ -76,9 +76,26 @@ def _bootstrap_line_items(bind):
         ))
 
 
+def _bootstrap_categories(bind):
+    from config import HSA_CATEGORIES
+    with bind.begin() as conn:
+        existing_count = conn.execute(text(
+            "SELECT COUNT(*) FROM categories"
+        )).scalar()
+        if existing_count and existing_count > 0:
+            return
+
+        for cat in HSA_CATEGORIES:
+            conn.execute(
+                text("INSERT INTO categories (name, is_default) VALUES (:name, 1)"),
+                {"name": cat}
+            )
+
+
 def init_db():
     from backend.models import Base
     RECEIPTS_DIR.mkdir(exist_ok=True)
     Base.metadata.create_all(bind=engine)
     _migrate(engine)
+    _bootstrap_categories(engine)
     _bootstrap_line_items(engine)

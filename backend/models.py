@@ -5,6 +5,14 @@ from sqlalchemy.orm import declarative_base, relationship
 Base = declarative_base()
 
 
+class Category(Base):
+    __tablename__ = "categories"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    name       = Column(String, unique=True, nullable=False)
+    is_default = Column(Boolean, nullable=False, default=False)
+
+
 class HSAExpense(Base):
     __tablename__ = "hsa_expenses"
 

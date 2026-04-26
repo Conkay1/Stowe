@@ -31,7 +31,9 @@ const del  = (path) => req("DELETE", path);
 
 export const api = {
   categories: {
-    list: () => get("/categories"),
+    list:   () => get("/categories"),
+    create: (body) => post("/categories", body),
+    remove: (id)   => del(`/categories/${id}`),
   },
   expenses: {
     list:          (params)       => get("/expenses", params),

@@ -1,13 +1,28 @@
-from datetime import date, datetime
+import datetime as _dt
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, field_validator, model_validator
 
 from config import HSA_CATEGORIES
 
+# Type alias — avoids Pydantic v2 field-name shadowing when a field is also called "date".
+DateType = _dt.date
+
+
+class CategoryIn(BaseModel):
+    name: str
+
+class CategoryOut(BaseModel):
+    id: int
+    name: str
+    is_default: bool
+
+    model_config = {"from_attributes": True}
+
 
 class ExpenseCreate(BaseModel):
     merchant: str
-    date: date
+    date: DateType
     amount: float
     category: str = "Other"
     notes: Optional[str] = None
@@ -19,22 +34,15 @@ class ExpenseCreate(BaseModel):
             raise ValueError("Amount must be greater than 0")
         return round(v, 2)
 
-    @field_validator("category")
-    @classmethod
-    def category_must_be_valid(cls, v: str) -> str:
-        if v not in HSA_CATEGORIES:
-            raise ValueError(f"Category must be one of: {', '.join(HSA_CATEGORIES)}")
-        return v
-
 
 class ExpenseUpdate(BaseModel):
     merchant: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[DateType] = None
     amount: Optional[float] = None
     category: Optional[str] = None
     notes: Optional[str] = None
     reimbursed: Optional[bool] = None
-    reimbursed_date: Optional[date] = None
+    reimbursed_date: Optional[DateType] = None
 
     @field_validator("amount")
     @classmethod
@@ -42,13 +50,6 @@ class ExpenseUpdate(BaseModel):
         if v is not None and v <= 0:
             raise ValueError("Amount must be greater than 0")
         return round(v, 2) if v is not None else v
-
-    @field_validator("category")
-    @classmethod
-    def category_must_be_valid(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in HSA_CATEGORIES:
-            raise ValueError(f"Category must be one of: {', '.join(HSA_CATEGORIES)}")
-        return v
 
 
 class ReceiptOut(BaseModel):
@@ -65,12 +66,12 @@ class ReceiptOut(BaseModel):
 class ExpenseOut(BaseModel):
     id: int
     merchant: str
-    date: date
+    date: DateType
     amount: float
     category: str
     notes: Optional[str]
     reimbursed: bool
-    reimbursed_date: Optional[date]
+    reimbursed_date: Optional[DateType]
     covered_amount: float = 0.0     # sum of all line items pointing at this expense
     remaining_amount: float = 0.0   # max(0, amount - covered_amount); 0 means fully covered
     pull_count: int = 0             # how many distinct pulls back this expense
@@ -112,7 +113,7 @@ class PullLineItemIn(BaseModel):
 
 
 class ReimbursementCreate(BaseModel):
-    date: date
+    date: DateType
     reference: Optional[str] = None
     notes: Optional[str] = None
     total_amount: float
@@ -137,8 +138,8 @@ class ReimbursementCreate(BaseModel):
 
     @field_validator("date")
     @classmethod
-    def date_not_in_future(cls, v: date) -> date:
-        if v > date.today():
+    def date_not_in_future(cls, v: DateType) -> DateType:
+        if v > _dt.date.today():
             raise ValueError("Pull date cannot be in the future")
         return v
 
@@ -158,14 +159,14 @@ class PullLineItemOut(BaseModel):
     covered_amount: float
     expense_amount: float
     merchant: str
-    date: date
+    date: DateType
     category: str
     receipt_count: int
 
 
 class ReimbursementListItem(BaseModel):
     id: int
-    date: date
+    date: DateType
     reference: Optional[str]
     notes: Optional[str]
     expense_count: int

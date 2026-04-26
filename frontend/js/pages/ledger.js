@@ -15,15 +15,19 @@ export async function render(container) {
   `;
 
   try {
-    const [years, summary] = await Promise.all([api.annualLedger(), api.summary()]);
-    renderLedger(years, summary);
+    const [years, summary, expenses] = await Promise.all([
+      api.annualLedger(), 
+      api.summary(),
+      api.expenses.list()
+    ]);
+    renderLedger(years, summary, expenses);
   } catch (err) {
     document.getElementById("ledger-content").innerHTML =
       `<div class="empty-state">Failed to load: ${err.message}</div>`;
   }
 }
 
-function renderLedger(years, summary) {
+function renderLedger(years, summary, expenses) {
   const el = document.getElementById("ledger-content");
 
   if (years.length === 0) {
@@ -55,8 +59,26 @@ function renderLedger(years, summary) {
         </div>
       </div>
     </div>
+
+    <div style="display:flex; gap:16px; margin-bottom: 24px; flex-wrap: wrap;">
+      <div class="card" style="flex:1; min-width:300px; padding: 16px;">
+        <h3 style="margin-top:0; margin-bottom:16px; font-size: 14px; color: var(--muted); text-transform: uppercase;">Category Breakdown</h3>
+        <div style="position: relative; height: 250px;">
+          <canvas id="categoryChart"></canvas>
+        </div>
+      </div>
+      <div class="card" style="flex:1; min-width:300px; padding: 16px;">
+        <h3 style="margin-top:0; margin-bottom:16px; font-size: 14px; color: var(--muted); text-transform: uppercase;">Spending Trends</h3>
+        <div style="position: relative; height: 250px;">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+    </div>
+
     ${years.map(y => yearCard(y)).join("")}
   `;
+
+  setTimeout(() => renderCharts(expenses), 0);
 }
 
 function yearCard(y) {
@@ -100,4 +122,79 @@ function yearCard(y) {
       </div>
     </div>
   `;
+}
+
+function renderCharts(expenses) {
+  if (expenses.length === 0 || !window.Chart) return;
+
+  const catTotals = {};
+  expenses.forEach(e => {
+    catTotals[e.category] = (catTotals[e.category] || 0) + e.amount;
+  });
+  
+  const catLabels = Object.keys(catTotals).sort((a,b) => catTotals[b] - catTotals[a]);
+  const catData = catLabels.map(l => catTotals[l]);
+  const bgColors = [
+    '#185FA5', '#2E86AB', '#3F88C5', '#F49D37', '#D72638', 
+    '#1B998B', '#F2A65A', '#772E25', '#C44536', '#4C5C68'
+  ];
+
+  new Chart(document.getElementById('categoryChart'), {
+    type: 'doughnut',
+    data: {
+      labels: catLabels,
+      datasets: [{
+        data: catData,
+        backgroundColor: bgColors.slice(0, catLabels.length),
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, font: { family: 'system-ui' } } },
+        tooltip: { callbacks: { label: (ctx) => ' ' + ctx.label + ': ' + fmt(ctx.raw) } }
+      }
+    }
+  });
+
+  const monthTotals = {};
+  expenses.forEach(e => {
+    const month = e.date.substring(0, 7);
+    monthTotals[month] = (monthTotals[month] || 0) + e.amount;
+  });
+
+  const allMonths = Object.keys(monthTotals).sort();
+  const trendLabels = allMonths.slice(-12);
+  const trendData = trendLabels.map(m => monthTotals[m]);
+
+  new Chart(document.getElementById('trendChart'), {
+    type: 'bar',
+    data: {
+      labels: trendLabels.map(m => {
+        const [y, mo] = m.split('-');
+        const date = new Date(y, parseInt(mo)-1);
+        return date.toLocaleDateString('default', { month: 'short', year: '2-digit' });
+      }),
+      datasets: [{
+        label: 'Expenses',
+        data: trendData,
+        backgroundColor: '#185FA5',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => ' ' + fmt(ctx.raw) } }
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => '$'+v } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
 }

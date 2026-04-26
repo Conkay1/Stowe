@@ -3,7 +3,12 @@ import { state, toast } from "../app.js";
 
 export async function render(container) {
   const today = new Date().toISOString().slice(0, 10);
-  const cats = state.categories.length ? state.categories : await api.categories.list();
+  let cats = state.categories;
+  if (!cats.length) {
+    const rawCats = await api.categories.list();
+    cats = rawCats.map(c => c.name || c);
+    state.categories = cats;
+  }
 
   container.innerHTML = `
     <div class="section-header">

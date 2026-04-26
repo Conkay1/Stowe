@@ -72,11 +72,6 @@ def _to_expense_out(e: HSAExpense, coverage: dict[int, tuple[float, int]]) -> Ex
     )
 
 
-# ── Categories ────────────────────────────────────────────────────────────────
-
-@router.get("/categories")
-def list_categories():
-    return HSA_CATEGORIES
 
 
 # ── Expenses ──────────────────────────────────────────────────────────────────
