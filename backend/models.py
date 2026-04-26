@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -64,12 +64,24 @@ class Reimbursement(Base):
     reference    = Column(String)
     notes        = Column(Text)
     total_amount = Column(Float, nullable=False, default=0.0)
+    account_id   = Column(
+        Integer,
+        ForeignKey("hsa_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at   = Column(DateTime, default=datetime.utcnow)
 
     line_items = relationship(
         "ReimbursementLineItem",
         back_populates="reimbursement",
         cascade="all, delete-orphan",
+    )
+    account      = relationship("HSAAccount", back_populates="pulls")
+    distribution = relationship(
+        "CustodianDistribution",
+        back_populates="reimbursement",
+        uselist=False,
     )
 
 
@@ -84,3 +96,84 @@ class ReimbursementLineItem(Base):
 
     reimbursement = relationship("Reimbursement", back_populates="line_items")
     expense       = relationship("HSAExpense", back_populates="line_items")
+
+
+# ── HSA Accounts (custodian linking) ────────────────────────────────────────
+
+class HSAAccount(Base):
+    """An HSA the user owns. Pulls can be tagged to one; CSVs import distributions."""
+    __tablename__ = "hsa_accounts"
+
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    name           = Column(String, nullable=False)
+    custodian      = Column(String, nullable=False)
+    account_mask   = Column(String)           # last-4 or nickname; never the full number
+    is_active      = Column(Boolean, nullable=False, default=True)
+    notes          = Column(Text)
+    csv_column_map = Column(Text)             # JSON: last successful column mapping
+    created_at     = Column(DateTime, default=datetime.utcnow)
+
+    distributions = relationship(
+        "CustodianDistribution",
+        back_populates="account",
+        cascade="all, delete-orphan",
+    )
+    snapshots = relationship(
+        "BalanceSnapshot",
+        back_populates="account",
+        cascade="all, delete-orphan",
+    )
+    pulls = relationship("Reimbursement", back_populates="account")
+
+
+class CustodianDistribution(Base):
+    """One distribution row imported from a custodian CSV. May be linked to a Reimbursement."""
+    __tablename__ = "custodian_distributions"
+
+    id               = Column(Integer, primary_key=True, autoincrement=True)
+    account_id       = Column(
+        Integer,
+        ForeignKey("hsa_accounts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    date             = Column(Date, nullable=False, index=True)
+    amount           = Column(Float, nullable=False)
+    description      = Column(String)
+    custodian_ref    = Column(String, index=True)   # transaction id, dedupe spine
+    reimbursement_id = Column(
+        Integer,
+        ForeignKey("reimbursements.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    matched_at       = Column(DateTime)
+    match_method     = Column(String)               # "auto" | "manual"
+    created_at       = Column(DateTime, default=datetime.utcnow)
+
+    account       = relationship("HSAAccount", back_populates="distributions")
+    reimbursement = relationship("Reimbursement", back_populates="distribution")
+
+
+class BalanceSnapshot(Base):
+    """Point-in-time balance for an HSA. Latest = current balance."""
+    __tablename__ = "balance_snapshots"
+
+    id               = Column(Integer, primary_key=True, autoincrement=True)
+    account_id       = Column(
+        Integer,
+        ForeignKey("hsa_accounts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    as_of_date       = Column(Date, nullable=False, index=True)
+    cash_balance     = Column(Float, nullable=False, default=0.0)
+    invested_balance = Column(Float, nullable=False, default=0.0)
+    source           = Column(String)          # "manual" | "csv"
+    created_at       = Column(DateTime, default=datetime.utcnow)
+
+    account = relationship("HSAAccount", back_populates="snapshots")
+
+    __table_args__ = (
+        UniqueConstraint("account_id", "as_of_date", name="ux_snapshot_account_date"),
+    )

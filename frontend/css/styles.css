@@ -131,6 +131,12 @@ a:hover { color: var(--accent-hover); }
   .toast { bottom: 72px; }
 }
 
+/* Tight viewport (iPhone SE etc.) — 6 tab icons fit comfortably without labels. */
+@media (max-width: 400px) {
+  .tab-bar .tab-label { display: none; }
+  .tab-bar .tab-icon  { width: 24px; height: 24px; }
+}
+
 /* ── Page wrapper ─────────────────────────────────────────────── */
 #app { padding: 24px; max-width: 900px; margin: 0 auto; }
 

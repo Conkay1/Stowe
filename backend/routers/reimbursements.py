@@ -6,12 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.db import get_db
-from backend.models import HSAExpense, Reimbursement, ReimbursementLineItem
+from backend.models import HSAAccount, HSAExpense, Reimbursement, ReimbursementLineItem
 from backend.schemas import (
+    DistributionOut,
     PullLineItemOut,
     ReimbursementCreate,
     ReimbursementListItem,
     ReimbursementOut,
+    ReimbursementUpdate,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["reimbursements"])
@@ -86,6 +88,8 @@ def _to_list_item(pull: Reimbursement) -> ReimbursementListItem:
         notes=pull.notes,
         expense_count=len(pull.line_items),
         total_amount=round(sum(li.covered_amount for li in pull.line_items), 2),
+        account_id=pull.account_id,
+        account_name=pull.account.name if pull.account else None,
         created_at=pull.created_at,
     )
 
@@ -98,6 +102,7 @@ def _to_full(pull: Reimbursement) -> ReimbursementOut:
             _line_item_out(li)
             for li in sorted(pull.line_items, key=lambda li: li.expense.date, reverse=True)
         ],
+        distribution=DistributionOut.model_validate(pull.distribution) if pull.distribution else None,
     )
 
 
@@ -184,6 +189,28 @@ def get_reimbursement(pull_id: int, db: Session = Depends(get_db)):
     pull = db.get(Reimbursement, pull_id)
     if not pull:
         raise HTTPException(404, "Pull not found")
+    return _to_full(pull)
+
+
+@router.put("/reimbursements/{pull_id}", response_model=ReimbursementOut)
+def update_reimbursement(pull_id: int, body: ReimbursementUpdate, db: Session = Depends(get_db)):
+    """Partial update of a Pull. Currently only `account_id` is editable."""
+    pull = db.get(Reimbursement, pull_id)
+    if not pull:
+        raise HTTPException(404, "Pull not found")
+
+    data = body.model_dump(exclude_unset=True)
+
+    if "account_id" in data:
+        new_account_id = data["account_id"]
+        if new_account_id is not None:
+            account = db.get(HSAAccount, new_account_id)
+            if not account:
+                raise HTTPException(400, f"Unknown account_id: {new_account_id}")
+        pull.account_id = new_account_id
+
+    db.commit()
+    db.refresh(pull)
     return _to_full(pull)
 
 

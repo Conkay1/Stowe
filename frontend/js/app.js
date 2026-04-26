@@ -30,10 +30,11 @@ overlay.addEventListener("click", e => { if (e.target === overlay) closeModal();
 
 // ── Router ─────────────────────────────────────────────────────
 const PAGES = {
-  vault:  () => import("./pages/vault.js"),
-  add:    () => import("./pages/add.js"),
-  pulls:  () => import("./pages/pulls.js"),
-  ledger: () => import("./pages/ledger.js"),
+  vault:    () => import("./pages/vault.js"),
+  add:      () => import("./pages/add.js"),
+  pulls:    () => import("./pages/pulls.js"),
+  ledger:   () => import("./pages/ledger.js"),
+  accounts: () => import("./pages/accounts.js"),
   settings: () => import("./pages/settings.js"),
 };
 

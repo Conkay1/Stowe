@@ -34,6 +34,27 @@ def _migrate(bind):
                 "ALTER TABLE reimbursements ADD COLUMN total_amount REAL NOT NULL DEFAULT 0"
             ))
 
+        # v0.5 — link reimbursements to HSA accounts.
+        reimb_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(reimbursements)"))]
+        if reimb_cols and "account_id" not in reimb_cols:
+            conn.execute(text(
+                "ALTER TABLE reimbursements ADD COLUMN account_id INTEGER "
+                "REFERENCES hsa_accounts(id)"
+            ))
+
+        # Partial unique index for CSV dedupe — SA can't express it cleanly.
+        # Idempotent via IF NOT EXISTS.
+        conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_distrib_ref "
+            "ON custodian_distributions(account_id, custodian_ref) "
+            "WHERE custodian_ref IS NOT NULL"
+        ))
+        # Backfill the FK lookup index on existing DBs (create_all handles fresh ones).
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_reimbursements_account_id "
+            "ON reimbursements(account_id)"
+        ))
+
 
 def _bootstrap_line_items(bind):
     """Backfill `reimbursement_line_items` from the legacy 1:1 reimbursement_id FK.

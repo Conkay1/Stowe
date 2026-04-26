@@ -38,18 +38,44 @@ export async function render(container) {
 }
 
 async function loadAll() {
-  const [summary, expenses] = await Promise.all([
+  const [summary, expenses, accounts] = await Promise.all([
     api.summary(),
     api.expenses.list(),
+    api.accounts.list().catch(() => []),
   ]);
 
   allExpenses = expenses;
-  renderHero(summary);
+  renderHero(summary, accounts);
   renderCompleteness(summary);
   renderList();
 }
 
-function renderHero(s) {
+function renderHero(s, accounts = []) {
+  // HSA balance footer — only render when at least one account has a snapshot.
+  const accountsWithSnap = accounts.filter(a => a.last_snapshot_date);
+  let hsaFooter = "";
+  if (accountsWithSnap.length > 0) {
+    const cash = accountsWithSnap.reduce((acc, a) => acc + (a.cash_balance || 0), 0);
+    const invested = accountsWithSnap.reduce((acc, a) => acc + (a.invested_balance || 0), 0);
+    const latest = accountsWithSnap
+      .map(a => a.last_snapshot_date)
+      .sort()
+      .slice(-1)[0];
+    hsaFooter = `
+      <div class="vault-hsa-footer">
+        Across ${accountsWithSnap.length} HSA account${accountsWithSnap.length !== 1 ? "s" : ""}:
+        <strong>${fmt(cash)}</strong> cash + <strong>${fmt(invested)}</strong> invested
+        as of ${fmtDate(latest)} · <a href="#/accounts">manage</a>
+      </div>
+    `;
+  } else if (accounts.length > 0) {
+    hsaFooter = `
+      <div class="vault-hsa-footer text-muted">
+        ${accounts.length} HSA account${accounts.length !== 1 ? "s" : ""} configured · no balance recorded yet · <a href="#/accounts">add a snapshot</a>
+      </div>
+    `;
+  }
+
   document.getElementById("vault-hero-wrap").innerHTML = `
     <div class="vault-hero">
       <div class="vault-label">Vault Balance</div>
@@ -69,8 +95,24 @@ function renderHero(s) {
           <div class="vault-stat-value">${s.count_unreimbursed + s.count_reimbursed}</div>
         </div>
       </div>
+      ${hsaFooter}
     </div>
   `;
+
+  if (!document.getElementById("vault-hsa-footer-style")) {
+    const st = document.createElement("style");
+    st.id = "vault-hsa-footer-style";
+    st.textContent = `
+      .vault-hsa-footer {
+        margin-top: 16px; padding-top: 12px;
+        border-top: 1px solid var(--border);
+        font-size: 12px; color: var(--muted);
+      }
+      .vault-hsa-footer strong { color: var(--text); }
+      .vault-hsa-footer a { color: var(--accent); }
+    `;
+    document.head.appendChild(st);
+  }
 }
 
 function renderCompleteness(s) {
