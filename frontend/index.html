@@ -10,6 +10,14 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16.png">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="manifest" href="/static/manifest.json">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('stowe-theme');
+        if (t && t !== 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>

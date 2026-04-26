@@ -1,6 +1,15 @@
 import { api } from "../api.js";
 import { state, toast } from "../app.js";
 
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  localStorage.setItem('stowe-theme', theme);
+}
+
 export async function render(container) {
   await renderView(container);
 }
@@ -15,9 +24,41 @@ async function renderView(container) {
     const defaults = cats.filter(c => c.is_default);
     const custom = cats.filter(c => !c.is_default);
 
+    const currentTheme = localStorage.getItem('stowe-theme') || 'dark';
+
     container.innerHTML = `
       <div class="section-header">
         <h2>Settings</h2>
+      </div>
+
+      <div class="card" style="margin-bottom: 20px;">
+        <h3>Theme</h3>
+        <p class="text-muted" style="margin-bottom: 16px; font-size: 13px;">
+          Choose your preferred appearance.
+        </p>
+        <div id="theme-picker" style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <button class="theme-option ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">
+            <div class="theme-preview" style="background: #0f1117; border-color: #2e3350;">
+              <div style="background: #1a1d27; height: 6px; border-radius: 3px; margin-bottom: 4px;"></div>
+              <div style="background: #378ADD; height: 4px; width: 60%; border-radius: 2px;"></div>
+            </div>
+            <span>Dark</span>
+          </button>
+          <button class="theme-option ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">
+            <div class="theme-preview" style="background: #f4f5f7; border-color: #d5d9e2;">
+              <div style="background: #ffffff; height: 6px; border-radius: 3px; margin-bottom: 4px;"></div>
+              <div style="background: #185FA5; height: 4px; width: 60%; border-radius: 2px;"></div>
+            </div>
+            <span>Light</span>
+          </button>
+          <button class="theme-option ${currentTheme === 'sepia' ? 'active' : ''}" data-theme="sepia">
+            <div class="theme-preview" style="background: #f5f0e8; border-color: #d8cfc0;">
+              <div style="background: #faf6ee; height: 6px; border-radius: 3px; margin-bottom: 4px;"></div>
+              <div style="background: #8b5e34; height: 4px; width: 60%; border-radius: 2px;"></div>
+            </div>
+            <span>Sepia</span>
+          </button>
+        </div>
       </div>
       
       <div class="card">
@@ -60,6 +101,17 @@ async function renderView(container) {
         </form>
       </div>
     `;
+
+    // Theme switcher
+    document.getElementById("theme-picker").addEventListener("click", (e) => {
+      const btn = e.target.closest(".theme-option");
+      if (!btn) return;
+      const theme = btn.dataset.theme;
+      applyTheme(theme);
+      document.querySelectorAll(".theme-option").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      toast(`Theme set to ${theme}`);
+    });
 
     document.getElementById("add-cat-form").addEventListener("submit", async (e) => {
       e.preventDefault();
