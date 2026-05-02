@@ -2,10 +2,10 @@
 ; Requires: Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
 ; Build:    iscc stowe.iss
 ; Input:    dist\Stowe\   (PyInstaller COLLECT output from stowe-windows.spec)
-; Output:   Stowe-0.5.0-windows-setup.exe
+; Output:   Stowe-0.6.0-windows-setup.exe
 
 #define AppName      "Stowe"
-#define AppVersion   "0.5.0"
+#define AppVersion   "0.6.0"
 #define AppPublisher "Connor Kay"
 #define AppURL       "https://stowe.health"
 #define AppExeName   "Stowe.exe"

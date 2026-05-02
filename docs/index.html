@@ -69,7 +69,7 @@
       <div class="hero-meta">
         <span><span class="dot">●</span> Free &amp; open source</span>
         <span><span class="dot">●</span> Local-only — no cloud</span>
-        <span><span class="dot">●</span> macOS · Windows soon</span>
+        <span><span class="dot">●</span> macOS · Windows</span>
       </div>
     </div>
   </section>
@@ -88,7 +88,7 @@
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2 4 6v6c0 4.4 3.4 8.5 8 10 4.6-1.5 8-5.6 8-10V6l-8-4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
           <h3>Your data stays on your Mac</h3>
-          <p>Stowe is local-first by design. No account, no sync, no telemetry. The database is a single SQLite file you fully own.</p>
+          <p>Stowe is local-first by design. No Stowe account, no cloud, no telemetry. The database is a single SQLite file you fully own.</p>
         </div>
         <div class="card">
           <div class="card-icon">
@@ -147,19 +147,58 @@
     </div>
   </section>
 
+  <!-- ── What's new ────────────────────────────────────────────── -->
+  <section id="whats-new">
+    <div class="container">
+      <p class="section-eyebrow">New in v0.6.0</p>
+      <h2 class="section-title">More ways to track, the same local-only soul</h2>
+      <p class="section-sub">Signed and notarized for macOS. Plus categories you control, light analytics, account reconciliation, and three themes.</p>
+      <div class="shots">
+        <div class="shot">
+          <div class="shot-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h6l2 2h8v10a2 2 0 0 1-2 2H4V6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 13h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Custom categories</h3>
+          <p>Name expenses your way — add your own categories alongside the built-in HSA ones.</p>
+        </div>
+        <div class="shot">
+          <div class="shot-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19V5M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 16v-3M12 16V9M16 16v-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Spending analytics</h3>
+          <p>Quiet charts that show where your medical spending is going, by category and over time.</p>
+        </div>
+        <div class="shot">
+          <div class="shot-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 7h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 11h18M8 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h3>HSA accounts &amp; reconciliation</h3>
+          <p>Link your HSA, import a custodian distribution CSV, and reconcile every Pull against the real money that left your account.</p>
+        </div>
+        <div class="shot">
+          <div class="shot-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 3a9 9 0 0 0 0 18Z" fill="currentColor"/></svg>
+          </div>
+          <h3>Light, dark &amp; sepia</h3>
+          <p>Three themes that stick across launches. Pick the one that's easiest on your eyes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ── Install ───────────────────────────────────────────────── -->
   <section id="install">
     <div class="container">
       <p class="section-eyebrow">Install</p>
       <h2 class="section-title">Two ways to run it</h2>
-      <p class="section-sub">Use the macOS DMG for the desktop app, or run from source if you'd rather see the code.</p>
+      <p class="section-sub">Use the macOS DMG, the Windows installer, or run from source if you'd rather see the code.</p>
       <div class="install-grid">
         <div class="install-step">
           <h3>macOS app</h3>
           <ol>
             <li>Download the latest <code>Stowe-x.y.z.dmg</code> from <a href="https://github.com/Conkay1/Stowe/releases/latest">Releases</a>.</li>
             <li>Open the DMG and drag <strong>Stowe</strong> into <strong>Applications</strong>.</li>
-            <li>First launch: macOS will warn the build is unsigned. Right-click <code>Stowe.app</code> → <strong>Open</strong> → confirm <strong>Open</strong>. Subsequent launches work normally.</li>
+            <li>Open <strong>Stowe</strong>. The build is signed with a Developer ID and notarized by Apple, so it launches without any Gatekeeper warning.</li>
           </ol>
           <p style="margin-top:12px; color: var(--muted); font-size: 14px;">
             The app keeps your database at <code>~/Library/Application&nbsp;Support/Stowe/</code>.
@@ -199,7 +238,7 @@ python3 run.py</pre>
         </details>
         <details>
           <summary>Is there a Windows or Linux version?</summary>
-          <p>The macOS DMG is shipping first. Windows is on the roadmap. On Linux you can run from source today.</p>
+          <p>macOS and Windows both ship as packaged installers. On Linux you can run from source today.</p>
         </details>
         <details>
           <summary>How do I back up my data?</summary>

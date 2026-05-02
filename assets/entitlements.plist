@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- PyInstaller bootloader maps its embedded archive as RWX, and CPython
+         on Apple Silicon uses JIT-style trampolines via libffi/ctypes.
+         Without this, the hardened runtime kills the process at launch. -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- Belt-and-suspenders for JIT pages used by CPython / libffi. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!-- PyInstaller's _MEIxxxx temp dir contains many .dylib/.so files (Pillow,
+         pydantic_core, etc.) signed by us but not by Apple. The hardened
+         runtime's library validation rejects them unless this is set. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- uvicorn binds 0.0.0.0 on a port in 8000-8020 (run.py). -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- Raw socket.socket() calls for port detection and LAN-IP lookup. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>

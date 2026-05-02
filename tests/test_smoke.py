@@ -34,13 +34,6 @@ def test_reject_zero_amount(client):
     assert res.status_code == 422
 
 
-def test_reject_bad_category(client):
-    res = client.post("/api/v1/expenses", json={
-        "merchant": "Bad", "date": "2026-01-01", "amount": 10, "category": "NotARealCategory",
-    })
-    assert res.status_code == 422
-
-
 def test_mark_reimbursed_sets_date(client):
     expense = _make_expense(client)
     res = client.put(f"/api/v1/expenses/{expense['id']}", json={"reimbursed": True})
