@@ -6,7 +6,7 @@
 
 Stowe is a small desktop app for people who pay medical bills out-of-pocket with an HSA and want to defer reimbursement until later — possibly years later. The IRS lets you do this, but only if you can still produce the receipts when you pull the money out. That's what Stowe keeps track of.
 
-Your data lives on your computer. Nothing is sent to a server. No account, no sync, no telemetry.
+Your data lives on your computer. Nothing is sent to a server. No Stowe account. No cloud. No telemetry.
 
 ---
 
@@ -25,8 +25,13 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 - Mark expenses reimbursed when you pull the money out; the reimbursement date is recorded automatically
 - **Vault Balance** — running total of unreimbursed, receipt-backed expenses you could claim today
 - **Annual Ledger** — year-by-year breakdown with receipt-coverage percentage
+- **Custom categories** — add your own alongside the built-in HSA categories
+- **Spending analytics** — see where your medical spending is going, by category and over time
+- **HSA account linking** — track HSA balance, contributions, and distributions in one place
+- **Custodian CSV import** — import distribution history from your HSA custodian and reconcile it against the Pulls you've recorded
 - **CSV export** — per-year or all-time, for your tax records or a spreadsheet
-- Dark-mode UI, responsive on mobile when accessed over your local network
+- Light, dark, and sepia themes — switchable in Settings
+- Responsive on mobile when accessed over your local network
 
 ---
 
@@ -34,16 +39,13 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 
 ### macOS (recommended)
 
-1. Download `Stowe-0.5.0.dmg` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
+1. Download `Stowe-0.6.0.dmg` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
 2. Open the DMG and drag **Stowe** into **Applications**.
-3. **First launch:** because this build is unsigned, macOS will say *"Stowe can't be opened because Apple cannot check it for malicious software."* This is expected. Bypass it once:
-   - **Option A:** Right-click `Stowe.app` → **Open** → confirm **Open** in the dialog.
-   - **Option B:** Open **System Settings → Privacy & Security**, scroll to the "Stowe was blocked" message, click **Open Anyway**.
-   Subsequent launches work normally.
+3. Open **Stowe** from Applications. The build is signed with a Developer ID and notarized by Apple, so it launches normally — no Gatekeeper bypass needed.
 
 ### Windows
 
-1. Download `Stowe-0.5.0-windows-setup.exe` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
+1. Download `Stowe-0.6.0-windows-setup.exe` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
 2. Run the installer and follow the prompts. No administrator rights are required — Stowe installs to `%LOCALAPPDATA%\Programs\Stowe\`.
 3. A Start Menu entry and an optional Desktop shortcut are created automatically.
 4. **Prerequisite:** Microsoft Edge WebView2 Runtime. It ships pre-installed with Windows 10 (version 1803 or later) and Windows 11. If needed, download it from [microsoft.com/edge/webview2](https://developer.microsoft.com/microsoft-edge/webview2/).
@@ -79,7 +81,7 @@ python3 run.py
 
 Filenames on disk are random UUIDs, so nothing about the original filename leaks through `ls`.
 
-**That's it.** No cloud, no account, no analytics. To back up, copy those two paths. To migrate machines, copy them. To wipe everything, delete them.
+**That's it.** No Stowe account. No cloud. No telemetry. To back up, copy those two paths. To migrate machines, copy them. To wipe everything, delete them.
 
 If you want off-machine backups, drop the data dir inside iCloud Drive, Dropbox, or similar. The DB is a single SQLite file; receipts are opaque blobs. Both back up cleanly.
 
@@ -107,18 +109,15 @@ pytest
 
 ## Building the macOS app
 
-```bash
-pip install pyinstaller pywebview
-python -m PyInstaller stowe.spec --noconfirm
-# .app lands in dist/Stowe/
-```
-
-To package as a DMG:
+Requires an Apple Developer ID and one-time keychain setup — see
+[docs/macos-signing.md](docs/macos-signing.md).
 
 ```bash
-hdiutil create -volname "Stowe" -srcfolder "dist/Stowe" \
-  -ov -format UDZO "Stowe-0.5.0.dmg"
+export DEVELOPER_ID="Developer ID Application: Your Name (TEAMID)"
+./scripts/build-macos.sh
 ```
+
+Produces a signed, notarized, stapled `Stowe-<version>.dmg` in the repo root.
 
 ---
 

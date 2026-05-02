@@ -59,6 +59,9 @@ exe = EXE(
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
+    # Signing is performed post-build by scripts/build-macos.sh so we can
+    # deep-sign every nested dylib/.so. Do NOT set these here — PyInstaller's
+    # built-in signing only touches the top-level executable.
     codesign_identity=None,
     entitlements_file=None,
 )
@@ -81,8 +84,8 @@ app = BUNDLE(
     info_plist={
         'CFBundleName': 'Stowe',
         'CFBundleDisplayName': 'Stowe',
-        'CFBundleVersion': '0.5.0',
-        'CFBundleShortVersionString': '0.5.0',
+        'CFBundleVersion': '0.6.0',
+        'CFBundleShortVersionString': '0.6.0',
         'NSHighResolutionCapable': True,
         'LSMinimumSystemVersion': '11.0',
         'NSHumanReadableCopyright': 'Copyright (c) 2026 Connor Kay. MIT License.',
