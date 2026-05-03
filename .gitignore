@@ -46,3 +46,4 @@ Icon?
 
 # ── Release artifacts ────────────────────────────────────────────────────────
 *.dmg
+*-windows-setup.exe
