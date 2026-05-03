@@ -78,9 +78,12 @@ def install_deps():
 def init_database():
     sys.path.insert(0, str(BASE))
     from backend.db import init_db
+    from config import DATA_DIR, DATABASE_PATH
     print("Initializing database...")
     init_db()
     print("Database ready.")
+    print(f"Stowe data dir: {DATA_DIR}")
+    print(f"Stowe database: {DATABASE_PATH}")
 
 
 def _start_uvicorn():

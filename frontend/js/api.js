@@ -78,6 +78,10 @@ export const api = {
     unmatch: (id)       => del(`/distributions/${id}/match`),
     remove:  (id)       => del(`/distributions/${id}`),
   },
+  system: {
+    getDataDir:    () => get("/system/data-dir"),
+    revealDataDir: () => post("/system/reveal-data-dir", {}),
+  },
   summary:     () => get("/summary"),
   annualLedger: () => get("/annual-ledger"),
   csvUrl:    (year) => year ? `${BASE}/export/csv?year=${year}` : `${BASE}/export/csv`,
