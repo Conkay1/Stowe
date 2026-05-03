@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.db import init_db
-from backend.routers import accounts, expenses, reimbursements, categories
+from backend.routers import accounts, expenses, reimbursements, categories, system
 
 
 @asynccontextmanager
@@ -25,6 +25,7 @@ app.include_router(expenses.router)
 app.include_router(reimbursements.router)
 app.include_router(categories.router)
 app.include_router(accounts.router)
+app.include_router(system.router)
 
 # In a PyInstaller bundle, bundled data files are extracted under sys._MEIPASS.
 _RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))

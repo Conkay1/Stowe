@@ -16,7 +16,10 @@ export async function render(container) {
 
 async function renderView(container) {
   try {
-    const cats = await api.categories.list();
+    const [cats, dataInfo] = await Promise.all([
+      api.categories.list(),
+      api.system.getDataDir().catch(() => null),
+    ]);
     // Update global state with the name strings
     state.categories = cats.map(c => c.name);
 
@@ -61,6 +64,19 @@ async function renderView(container) {
         </div>
       </div>
       
+      ${dataInfo ? `
+      <div class="card" style="margin-bottom: 20px;">
+        <h3>Data Folder</h3>
+        <p class="text-muted" style="margin-bottom: 12px; font-size: 13px;">
+          Stowe stores all your data locally on this device. Your database, receipts, and exports live in the folder below.
+        </p>
+        <div style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; word-break: break-all;">
+          ${dataInfo.data_dir}
+        </div>
+        <button id="reveal-data-dir-btn" class="btn btn-primary">Show Data Folder</button>
+      </div>
+      ` : ''}
+
       <div class="card">
         <h3>Categories</h3>
         <p class="text-muted" style="margin-bottom: 16px; font-size: 13px;">
@@ -112,6 +128,21 @@ async function renderView(container) {
       btn.classList.add("active");
       toast(`Theme set to ${theme}`);
     });
+
+    const revealBtn = document.getElementById("reveal-data-dir-btn");
+    if (revealBtn) {
+      revealBtn.addEventListener("click", async () => {
+        revealBtn.disabled = true;
+        try {
+          await api.system.revealDataDir();
+          toast("Opened data folder");
+        } catch (err) {
+          toast(err.message, "error");
+        } finally {
+          revealBtn.disabled = false;
+        }
+      });
+    }
 
     document.getElementById("add-cat-form").addEventListener("submit", async (e) => {
       e.preventDefault();
