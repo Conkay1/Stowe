@@ -308,7 +308,7 @@ async function showManageModal(id) {
         </div>
         <div class="form-group" id="reimb-date-wrap" style="${expense.reimbursed ? "" : "display:none"}">
           <label>Reimbursement date</label>
-          <input type="date" name="reimbursed_date" value="${expense.reimbursed_date || new Date().toISOString().slice(0,10)}">
+          <input type="date" name="reimbursed_date" value="${expense.reimbursed_date || new Date().toLocaleDateString('en-CA');}">
         </div>
       `}
       <div style="display:flex;gap:8px;margin-bottom:20px">
