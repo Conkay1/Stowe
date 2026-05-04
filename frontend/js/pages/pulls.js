@@ -571,7 +571,7 @@ async function showNewPullModal() {
     return;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateStrong('en-CA');
 
   // Local state
   const allocations = new Map();   // expense_id -> covered_amount (number)
