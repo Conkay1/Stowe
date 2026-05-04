@@ -2,7 +2,7 @@ import { api } from "../api.js";
 import { state, toast } from "../app.js";
 
 export async function render(container) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = () => new Date().toLocaleDateString('en-CA');
   let cats = state.categories;
   if (!cats.length) {
     const rawCats = await api.categories.list();
