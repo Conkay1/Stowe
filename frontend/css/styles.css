@@ -227,6 +227,23 @@ tbody tr:hover { background: var(--surface2); }
 .badge-reimbursed   { background: var(--badge-reimb-bg); color: var(--green); }
 .badge-category     { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
 .badge-receipt      { background: var(--badge-receipt-bg); color: var(--accent); cursor: pointer; }
+/* Auto-review eligibility badges (advisory). Reuse the theme-aware status tints. */
+.badge-eligible     { background: var(--badge-reimb-bg); color: var(--green); }
+.badge-needs-review { background: var(--badge-unreimb-bg); color: var(--yellow); }
+.badge-ineligible   { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+/* ── Auto-review ──────────────────────────────────────────────── */
+/* Highlight fields the receipt scan pre-filled, until the user edits them. */
+input.field-autofilled, select.field-autofilled {
+  border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent);
+}
+.review-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.review-chip {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.review-chip-elig   { background: var(--badge-reimb-bg); color: var(--green); }
+.review-chip-inelig { background: var(--badge-unreimb-bg); color: var(--yellow); }
 
 /* ── Modal ────────────────────────────────────────────────────── */
 .modal-overlay {

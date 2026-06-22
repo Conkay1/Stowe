@@ -5,6 +5,19 @@ const fmt = n => "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigi
 const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 const esc = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
+// Advisory HSA-eligibility badge from the auto-review status. "" when not analyzed.
+const ELIG_BADGE = {
+  eligible:     ["badge-eligible", "✓ HSA-eligible"],
+  needs_review: ["badge-needs-review", "⚠ Review"],
+  ineligible:   ["badge-ineligible", "Not eligible"],
+};
+function eligBadge(status, notes) {
+  const m = ELIG_BADGE[status];
+  if (!m) return "";
+  const title = notes ? ` title="${esc(notes)}"` : "";
+  return `<span class="badge ${m[0]}"${title}>${m[1]}</span>`;
+}
+
 let currentFilter = "unreimbursed";
 let allExpenses = [];
 
@@ -193,6 +206,7 @@ function renderList() {
       ? `<span class="badge badge-reimbursed">Reimbursed</span>`
       : `<span class="badge badge-unreimbursed">In Vault</span>`;
     const receiptBadge = `<span class="badge badge-receipt" data-manage="${e.id}">📎 ${e.receipts.length}</span>`;
+    const elig = eligBadge(e.auto_review_status, e.auto_review_notes);
     const partialNote = partial
       ? `<div class="expense-partial-note">Partially pulled — ${fmt(remaining)} remaining of ${fmt(e.amount)}</div>`
       : "";
@@ -208,7 +222,7 @@ function renderList() {
       <td><span class="badge badge-category">${esc(e.category)}</span></td>
       <td class="col-amount" style="color:var(--red)">${fmt(e.amount)}</td>
       <td>${receiptBadge}</td>
-      <td>${statusBadge}</td>
+      <td>${statusBadge}${elig ? `<div style="margin-top:4px">${elig}</div>` : ""}</td>
       <td><button class="btn btn-secondary btn-sm" data-manage="${e.id}">Manage</button></td>
     `;
     tbody.appendChild(tr);
@@ -224,9 +238,10 @@ function renderList() {
       </div>
       <div class="expense-card-right">
         <span class="expense-card-amount">${fmt(e.amount)}</span>
-        <div style="display:flex;gap:6px;align-items:center">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
           ${receiptBadge}
           ${statusBadge}
+          ${elig}
         </div>
         <button class="btn btn-secondary btn-sm" data-manage="${e.id}">Manage</button>
       </div>
@@ -326,6 +341,8 @@ async function showManageModal(id) {
         <input type="file" accept="image/*,application/pdf" capture="environment" id="receipt-upload" style="display:none">
       </label>
     </div>
+    <hr class="divider">
+    <div id="review-section">${renderReviewSection(expense)}</div>
   `);
 
   // Toggle reimbursement date — only present when the expense isn't part of a pull
@@ -389,12 +406,73 @@ async function showManageModal(id) {
       const updated = await api.expenses.get(id);
       document.getElementById("receipt-grid").innerHTML = renderReceiptGrid(updated.receipts);
       attachReceiptDeleteListeners(id);
+      // Upload triggers a server-side auto-review — reflect the fresh result.
+      document.getElementById("review-section").innerHTML = renderReviewSection(updated);
+      attachReanalyze(id);
+      await loadAll();
     } catch (err) {
       toast(err.message, "error");
     }
   });
 
   attachReceiptDeleteListeners(id);
+  attachReanalyze(id);
+}
+
+function renderReviewSection(expense) {
+  const status = expense.auto_review_status || "not_analyzed";
+  const a = expense.auto_review;
+  const hasReceipts = expense.receipts.length > 0;
+  const badge = eligBadge(status) || `<span class="badge badge-ineligible">Not analyzed</span>`;
+
+  const chips = (items, cls) => (items && items.length)
+    ? items.map(i => `<span class="review-chip ${cls}">${esc(i)}</span>`).join("")
+    : "";
+
+  let body;
+  if (status === "not_analyzed") {
+    body = `<p class="text-muted" style="font-size:13px;margin:8px 0 0">${
+      hasReceipts ? "Not analyzed yet — tap Re-analyze." : "Attach a receipt to auto-check HSA eligibility."
+    }</p>`;
+  } else {
+    const notes = (a && a.notes) || expense.auto_review_notes || "";
+    const eligChips = chips(a && a.matched_eligible, "review-chip-elig");
+    const ineligChips = chips(a && a.matched_ineligible, "review-chip-inelig");
+    body = `
+      <p style="font-size:13px;margin:8px 0 0;color:var(--muted)">${esc(notes)}</p>
+      ${(eligChips || ineligChips) ? `<div class="review-chips">${eligChips}${ineligChips}</div>` : ""}
+    `;
+  }
+
+  return `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-weight:600;font-size:14px">Auto-review</span>
+      ${badge}
+      <div style="flex:1"></div>
+      ${hasReceipts ? `<button type="button" id="reanalyze-btn" class="btn btn-secondary btn-sm">Re-analyze</button>` : ""}
+    </div>
+    ${body}
+  `;
+}
+
+function attachReanalyze(expenseId) {
+  const btn = document.getElementById("reanalyze-btn");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "Analyzing…";
+    try {
+      const updated = await api.expenses.analyze(expenseId);
+      document.getElementById("review-section").innerHTML = renderReviewSection(updated);
+      attachReanalyze(expenseId);
+      toast("Receipts re-analyzed");
+      await loadAll();
+    } catch (err) {
+      toast(err.message, "error");
+      btn.disabled = false;
+      btn.textContent = "Re-analyze";
+    }
+  });
 }
 
 function renderReceiptGrid(receipts) {

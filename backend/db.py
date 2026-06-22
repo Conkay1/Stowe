@@ -42,6 +42,25 @@ def _migrate(bind):
                 "REFERENCES hsa_accounts(id)"
             ))
 
+        # v0.6 — auto-review of receipts (local OCR + eligibility hints).
+        # Three columns added to hsa_expenses; each guarded + re-checked independently.
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(hsa_expenses)"))]
+        if cols and "auto_review_status" not in cols:
+            conn.execute(text(
+                "ALTER TABLE hsa_expenses ADD COLUMN auto_review_status "
+                "TEXT NOT NULL DEFAULT 'not_analyzed'"
+            ))
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(hsa_expenses)"))]
+        if cols and "auto_review_notes" not in cols:
+            conn.execute(text(
+                "ALTER TABLE hsa_expenses ADD COLUMN auto_review_notes TEXT"
+            ))
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(hsa_expenses)"))]
+        if cols and "auto_review_metadata" not in cols:
+            conn.execute(text(
+                "ALTER TABLE hsa_expenses ADD COLUMN auto_review_metadata TEXT"
+            ))
+
         # Partial unique index for CSV dedupe — SA can't express it cleanly.
         # Idempotent via IF NOT EXISTS.
         conn.execute(text(

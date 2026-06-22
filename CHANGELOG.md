@@ -4,6 +4,20 @@ All notable changes to Stowe are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-06-22
+
+### Added
+- **Auto-review of receipts.** When you attach or upload a receipt, Stowe runs
+  on-device OCR — Apple Vision for photos and images on macOS, plus embedded-text
+  PDF extraction on every platform — and gives an advisory HSA-eligibility hint
+  (a guide, never tax advice). The Add screen pre-fills merchant, date, and amount
+  from the receipt; the Vault shows an eligibility badge and the items it matched,
+  with a "Re-analyze" button in the expense manager. Everything runs locally.
+
+### Fixed
+- Default dates now follow your local timezone instead of UTC, so adding an
+  expense late in the day no longer pre-fills tomorrow's date.
+
 ## [0.6.0] — 2026-05-02
 
 ### Added
@@ -70,6 +84,7 @@ All notable changes to Stowe are documented here. The format is based on
 
 Initial release.
 
+[0.7.0]: https://github.com/Conkay1/Stowe/releases/tag/v0.7.0
 [0.6.0]: https://github.com/Conkay1/Stowe/releases/tag/v0.6.0
 [0.5.0]: https://github.com/Conkay1/Stowe/releases/tag/v0.5.0
 [0.4.0]: https://github.com/Conkay1/Stowe/releases/tag/v0.4.0

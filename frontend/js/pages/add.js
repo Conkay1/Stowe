@@ -84,11 +84,52 @@ export async function render(container) {
       fileName.textContent = f.name;
       filePreview.style.display = "";
       labelText.textContent = "Change Receipt";
+      autoFillFromReceipt(f);
     } else {
       filePreview.style.display = "none";
       labelText.textContent = "Attach Receipt — Photo or File";
     }
   });
+
+  // Auto-analyze the attached receipt and pre-fill blank fields. Best-effort:
+  // failures are silent, and we never overwrite anything the user already typed.
+  async function autoFillFromReceipt(file) {
+    const form = document.getElementById("add-form");
+    const merchantEl = form.querySelector("input[name='merchant']");
+    const dateEl = form.querySelector("input[name='date']");
+    const amountEl = form.querySelector("input[name='amount']");
+    const categoryEl = form.querySelector("select[name='category']");
+
+    const setFilled = (el, value) => {
+      el.value = value;
+      el.classList.add("field-autofilled");
+      el.addEventListener("input", () => el.classList.remove("field-autofilled"), { once: true });
+    };
+
+    labelText.textContent = "Analyzing receipt…";
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const a = await api.receipts.analyze(fd);
+
+      let filledAny = false;
+      // Merchant / amount start blank; only fill if still untouched.
+      if (a.merchant && !merchantEl.value.trim()) { setFilled(merchantEl, a.merchant); filledAny = true; }
+      if (a.amount != null && !amountEl.value.trim()) { setFilled(amountEl, a.amount); filledAny = true; }
+      // Date defaults to today; overwrite only if the user hasn't changed that default.
+      if (a.date && dateEl.value === today) { setFilled(dateEl, a.date); filledAny = true; }
+      // Category select defaults to the first option; suggest only if untouched.
+      if (a.category && categoryEl.value === cats[0] && a.category !== cats[0]
+          && cats.includes(a.category)) {
+        setFilled(categoryEl, a.category); filledAny = true;
+      }
+
+      labelText.textContent = "Change Receipt";
+      if (filledAny) toast("Receipt scanned — review the highlighted fields");
+    } catch (err) {
+      labelText.textContent = "Change Receipt";  // analysis is optional; stay silent
+    }
+  }
 
   clearFileBtn.addEventListener("click", () => {
     fileInput.value = "";

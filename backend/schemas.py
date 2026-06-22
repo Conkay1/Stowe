@@ -64,6 +64,24 @@ class ReceiptOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ReceiptAnalysisOut(BaseModel):
+    """Result of an auto-review pass. Advisory hint — never asserts tax eligibility.
+
+    Doubles as (a) the response for POST /receipts/analyze and (b) the parsed
+    `auto_review_metadata` embedded on ExpenseOut.
+    """
+    status: str                              # eligible | needs_review | ineligible | not_analyzed
+    confidence: str = "low"                  # high | medium | low
+    matched_eligible: list[str] = []
+    matched_ineligible: list[str] = []
+    merchant: Optional[str] = None
+    date: Optional[DateType] = None
+    amount: Optional[float] = None
+    category: Optional[str] = None
+    notes: str = ""
+    method: str = "none"                     # pdf-text | vision | none (how text was obtained)
+
+
 class ExpenseOut(BaseModel):
     id: int
     merchant: str
@@ -76,6 +94,9 @@ class ExpenseOut(BaseModel):
     covered_amount: float = 0.0     # sum of all line items pointing at this expense
     remaining_amount: float = 0.0   # max(0, amount - covered_amount); 0 means fully covered
     pull_count: int = 0             # how many distinct pulls back this expense
+    auto_review_status: str = "not_analyzed"
+    auto_review_notes: Optional[str] = None
+    auto_review: Optional[ReceiptAnalysisOut] = None   # parsed auto_review_metadata
     created_at: datetime
     receipts: list[ReceiptOut] = []
 

@@ -4,3 +4,9 @@ sqlalchemy==2.0.35
 pydantic==2.9.2
 python-multipart==0.0.12
 pywebview>=5.0.5
+# Auto-review of receipts: pypdf extracts text from digital PDFs (all platforms).
+pypdf==4.3.1
+# macOS-only: Apple Vision OCR for image receipts. Pinned to 10.x — pyobjc 11
+# dropped Python 3.9 wheels. The env marker keeps Windows/Linux installs clean.
+pyobjc-framework-Vision==10.3.1 ; sys_platform == "darwin"
+pyobjc-framework-Quartz==10.3.1 ; sys_platform == "darwin"

@@ -35,6 +35,14 @@ a = Analysis(
         'webview.platforms.win32',
         'webview.platforms.winforms',
         'webview.platforms.cef',
+        # Apple Vision OCR for receipt auto-review (macOS only). pyobjc bindings
+        # load submodules lazily, so PyInstaller needs them named explicitly.
+        # macOS-only build — safe to list unconditionally here (this is stowe.spec).
+        'objc',
+        'Foundation',
+        'CoreFoundation',
+        'Quartz',
+        'Vision',
     ],
     hookspath=['/opt/homebrew/lib/python3.11/site-packages/webview/__pyinstaller'],
     hooksconfig={},
@@ -84,8 +92,8 @@ app = BUNDLE(
     info_plist={
         'CFBundleName': 'Stowe',
         'CFBundleDisplayName': 'Stowe',
-        'CFBundleVersion': '0.6.0',
-        'CFBundleShortVersionString': '0.6.0',
+        'CFBundleVersion': '0.7.0',
+        'CFBundleShortVersionString': '0.7.0',
         'NSHighResolutionCapable': True,
         'LSMinimumSystemVersion': '11.0',
         'NSHumanReadableCopyright': 'Copyright (c) 2026 Connor Kay. MIT License.',

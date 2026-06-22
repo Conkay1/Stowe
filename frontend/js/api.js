@@ -42,10 +42,12 @@ export const api = {
     update:        (id, body)     => put(`/expenses/${id}`, body),
     remove:        (id)           => del(`/expenses/${id}`),
     uploadReceipt: (id, formData) => post(`/expenses/${id}/receipts`, formData, true),
+    analyze:       (id)           => post(`/expenses/${id}/analyze`, {}),
   },
   receipts: {
     remove:  (id) => del(`/receipts/${id}`),
     fileUrl: (id) => `${BASE}/receipts/${id}/file`,
+    analyze: (formData) => post("/receipts/analyze", formData, true),
   },
   reimbursements: {
     list:   ()         => get("/reimbursements"),
