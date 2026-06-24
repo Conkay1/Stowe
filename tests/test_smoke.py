@@ -387,6 +387,143 @@ def test_csv_export(client):
     assert "Walgreens" not in res_2026.text
 
 
+# ── Auto-review: eligibility classifier (pure, no OCR) ───────────────────────
+
+
+def test_eligibility_classifies_pharmacy_receipt():
+    from backend.eligibility import analyze_text
+    r = analyze_text(
+        "CVS PHARMACY #1234\n123 Main St\nPRESCRIPTION COPAY\n"
+        "Lisinopril 10mg\nTotal $15.00\n01/15/2026\nThank you"
+    )
+    assert r["status"] == "eligible"
+    assert r["confidence"] == "high"
+    assert r["amount"] == 15.00
+    assert r["date"] == "2026-01-15"
+    assert r["category"] == "Pharmacy"
+    assert "copay" in r["matched_eligible"]
+    assert "IRS Publication 502" in r["notes"]
+
+
+def test_eligibility_mixed_cart_needs_review():
+    from backend.eligibility import analyze_text
+    r = analyze_text("CVS PHARMACY\nIBUPROFEN $8.99\nSHAMPOO $5.49\nTotal $14.48\n02/03/2026")
+    assert r["status"] == "needs_review"
+    assert "ibuprofen" in r["matched_eligible"]
+    assert "shampoo" in r["matched_ineligible"]
+
+
+def test_eligibility_toiletries_ineligible():
+    from backend.eligibility import analyze_text
+    r = analyze_text("TARGET\nSHAMPOO $5.49\nTOOTHPASTE $3.99\nSODA $1.99\nTotal $11.47\n03/01/2026")
+    assert r["status"] == "ineligible"
+    assert r["matched_eligible"] == []
+
+
+def test_eligibility_empty_is_not_analyzed():
+    from backend.eligibility import analyze_text
+    assert analyze_text("")["status"] == "not_analyzed"
+    assert analyze_text("   \n  ")["status"] == "not_analyzed"
+
+
+def test_eligibility_prefers_total_over_subtotal():
+    from backend.eligibility import analyze_text
+    r = analyze_text("Subtotal $10.00\nTax $0.80\nTotal $10.80")
+    assert r["amount"] == 10.80
+
+
+def test_eligibility_ignores_future_dates():
+    from backend.eligibility import analyze_text
+    r = analyze_text("Exp 01/15/2099\nPaid 02/01/2026\nTotal $20.00")
+    assert r["date"] == "2026-02-01"
+
+
+def test_eligibility_word_boundary_no_false_positives():
+    from backend.eligibility import analyze_text
+    # "rx" must not match inside "marxist"; "spf" must not match inside random text.
+    r = analyze_text("Pure water and 24 marxist pamphlets")
+    assert r["matched_eligible"] == []
+
+
+# ── Auto-review: endpoints (OCR monkeypatched to canned text) ────────────────
+
+
+def test_analyze_receipt_endpoint(client, monkeypatch):
+    from backend import ocr
+    monkeypatch.setattr(
+        ocr, "extract_text",
+        lambda p: ("CVS PHARMACY\nPRESCRIPTION COPAY\nTotal $15.00\n01/15/2026", "vision"),
+    )
+    res = client.post(
+        "/api/v1/receipts/analyze",
+        files={"file": ("r.png", io.BytesIO(b"\x89PNG\r\n\x1a\nxx"), "image/png")},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["status"] == "eligible"
+    assert body["amount"] == 15.00
+    assert body["category"] == "Pharmacy"
+    assert body["method"] == "vision"
+
+
+def test_upload_triggers_auto_review(client, monkeypatch):
+    from backend import ocr
+    monkeypatch.setattr(
+        ocr, "extract_text",
+        lambda p: ("WALGREENS PHARMACY\nFLU SHOT $40.00\n05/01/2026", "vision"),
+    )
+    expense = _make_expense(client)
+    res = client.post(
+        f"/api/v1/expenses/{expense['id']}/receipts",
+        files={"file": ("r.png", io.BytesIO(b"\x89PNG\r\n\x1a\nxx"), "image/png")},
+    )
+    assert res.status_code == 201, res.text
+
+    e = client.get(f"/api/v1/expenses/{expense['id']}").json()
+    assert e["auto_review_status"] == "eligible"
+    assert e["auto_review"]["amount"] == 40.00
+    assert e["auto_review"]["method"] == "vision"
+    assert "IRS Publication 502" in e["auto_review_notes"]
+
+
+def test_reanalyze_endpoint(client, monkeypatch):
+    from backend import ocr
+    expense = _make_expense(client)
+
+    # First upload yields no readable text → not_analyzed.
+    monkeypatch.setattr(ocr, "extract_text", lambda p: ("", "none"))
+    client.post(
+        f"/api/v1/expenses/{expense['id']}/receipts",
+        files={"file": ("r.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")},
+    )
+    assert client.get(f"/api/v1/expenses/{expense['id']}").json()["auto_review_status"] == "not_analyzed"
+
+    # Swap in good text and re-analyze the existing receipt.
+    monkeypatch.setattr(ocr, "extract_text", lambda p: ("DENTAL CLEANING\nTotal $120.00\n04/04/2026", "pdf-text"))
+    res = client.post(f"/api/v1/expenses/{expense['id']}/analyze")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["auto_review_status"] == "eligible"
+    assert body["auto_review"]["category"] == "Dental"
+
+
+def test_auto_review_failure_is_silent(client, monkeypatch):
+    from backend import ocr
+
+    def boom(path):
+        raise RuntimeError("vision exploded")
+
+    monkeypatch.setattr(ocr, "extract_text", boom)
+    expense = _make_expense(client)
+    res = client.post(
+        f"/api/v1/expenses/{expense['id']}/receipts",
+        files={"file": ("r.png", io.BytesIO(b"\x89PNG\r\n\x1a\nxx"), "image/png")},
+    )
+    # OCR blowing up must never break the upload, and status stays at the default.
+    assert res.status_code == 201, res.text
+    assert client.get(f"/api/v1/expenses/{expense['id']}").json()["auto_review_status"] == "not_analyzed"
+
+
 # ── Custom Categories (v0.6.0) ───────────────────────────────────────────────
 
 

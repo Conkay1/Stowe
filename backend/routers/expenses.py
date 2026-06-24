@@ -1,6 +1,10 @@
 import csv
 import io
+import json
+import logging
+import os
 import re
+import tempfile
 import uuid
 import zipfile
 from datetime import date
@@ -12,10 +16,17 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from backend import ocr
 from backend.db import get_db
+from backend.eligibility import analyze_text
 from backend.models import HSAExpense, Receipt, ReimbursementLineItem
-from backend.schemas import ExpenseCreate, ExpenseOut, ExpenseUpdate, LedgerYear, ReceiptOut, VaultSummary
+from backend.schemas import (
+    ExpenseCreate, ExpenseOut, ExpenseUpdate, LedgerYear,
+    ReceiptAnalysisOut, ReceiptOut, VaultSummary,
+)
 from config import DATABASE_PATH, HSA_CATEGORIES, RECEIPTS_DIR
+
+logger = logging.getLogger("stowe.review")
 
 router = APIRouter(prefix="/api/v1", tags=["expenses"])
 
@@ -55,6 +66,14 @@ def _coverage_map(db: Session, expense_ids: list[int]) -> dict[int, tuple[float,
 def _to_expense_out(e: HSAExpense, coverage: dict[int, tuple[float, int]]) -> ExpenseOut:
     covered, pull_count = coverage.get(e.id, (0.0, 0))
     remaining = max(round(e.amount - covered, 2), 0.0)
+    # Parse the stored auto-review JSON into a typed object. Guarded so a stale or
+    # malformed blob never 500s a list call.
+    auto_review = None
+    if e.auto_review_metadata:
+        try:
+            auto_review = ReceiptAnalysisOut(**json.loads(e.auto_review_metadata))
+        except Exception:
+            auto_review = None
     return ExpenseOut(
         id=e.id,
         merchant=e.merchant,
@@ -67,9 +86,62 @@ def _to_expense_out(e: HSAExpense, coverage: dict[int, tuple[float, int]]) -> Ex
         covered_amount=round(covered, 2),
         remaining_amount=remaining,
         pull_count=pull_count,
+        auto_review_status=e.auto_review_status or "not_analyzed",
+        auto_review_notes=e.auto_review_notes,
+        auto_review=auto_review,
         created_at=e.created_at,
         receipts=[ReceiptOut.model_validate(r) for r in e.receipts],
     )
+
+
+def _read_validated_upload(file: UploadFile, content: bytes) -> tuple[bytes, str, str]:
+    """Validate an upload's name / content-type / size. Returns (content, ext, original).
+
+    Raises the same HTTPExceptions as the receipt upload path. `content` is passed
+    in so the caller owns the (async) read — lets this be shared by both the
+    persisting upload endpoint and the ephemeral analyze endpoint.
+    """
+    original = file.filename or "receipt"
+    safe_name = _sanitize_filename(original)
+    ext = Path(safe_name).suffix.lower()
+    if ext not in ALLOWED_RECEIPT_EXTS:
+        raise HTTPException(400, f"Unsupported file type. Allowed: {', '.join(sorted(ALLOWED_RECEIPT_EXTS))}")
+    if file.content_type and file.content_type not in ALLOWED_RECEIPT_MIMES:
+        raise HTTPException(400, f"Unsupported content type: {file.content_type}")
+    if len(content) > MAX_RECEIPT_BYTES:
+        raise HTTPException(413, f"Receipt exceeds {MAX_RECEIPT_BYTES // (1024 * 1024)} MB limit")
+    if len(content) == 0:
+        raise HTTPException(400, "Empty file")
+    return content, ext, original
+
+
+def _review_expense(db: Session, expense: HSAExpense) -> None:
+    """OCR every receipt on `expense`, classify, and persist the auto-review columns.
+
+    Best-effort and defensive: any OCR/Vision/JSON failure is swallowed and logged
+    so a flaky analysis never breaks the request that triggered it.
+    """
+    try:
+        texts: list[str] = []
+        method = "none"
+        for r in expense.receipts:
+            f = RECEIPTS_DIR / r.filename
+            if not f.exists():
+                continue
+            text, m = ocr.extract_text(f)
+            if text.strip():
+                texts.append(text)
+            if m != "none":
+                method = m
+        result = analyze_text("\n\n".join(texts))   # handles "" → not_analyzed
+        result["method"] = method
+        expense.auto_review_status = result["status"]
+        expense.auto_review_notes = result["notes"]
+        expense.auto_review_metadata = json.dumps(result)
+        db.commit()
+    except Exception:
+        logger.exception("auto-review failed for expense %s", getattr(expense, "id", "?"))
+        db.rollback()
 
 
 
@@ -171,20 +243,7 @@ async def upload_receipt(
     if not expense:
         raise HTTPException(404, "Expense not found")
 
-    original = file.filename or "receipt"
-    safe_name = _sanitize_filename(original)
-    ext = Path(safe_name).suffix.lower()
-
-    if ext not in ALLOWED_RECEIPT_EXTS:
-        raise HTTPException(400, f"Unsupported file type. Allowed: {', '.join(sorted(ALLOWED_RECEIPT_EXTS))}")
-    if file.content_type and file.content_type not in ALLOWED_RECEIPT_MIMES:
-        raise HTTPException(400, f"Unsupported content type: {file.content_type}")
-
-    content = await file.read()
-    if len(content) > MAX_RECEIPT_BYTES:
-        raise HTTPException(413, f"Receipt exceeds {MAX_RECEIPT_BYTES // (1024 * 1024)} MB limit")
-    if len(content) == 0:
-        raise HTTPException(400, "Empty file")
+    content, ext, original = _read_validated_upload(file, await file.read())
 
     unique_name = f"{uuid.uuid4().hex}{ext}"
     dest = RECEIPTS_DIR / unique_name
@@ -199,8 +258,53 @@ async def upload_receipt(
     )
     db.add(receipt)
     db.commit()
+
+    # Re-run the auto-review now the new receipt is on disk. Best-effort — never
+    # blocks the 201. refresh(expense) so its .receipts includes the new file.
+    db.refresh(expense)
+    _review_expense(db, expense)
+
+    # _review_expense commits, expiring `receipt`; refresh so the response
+    # serializes a fresh, attached instance.
     db.refresh(receipt)
     return receipt
+
+
+@router.post("/receipts/analyze", response_model=ReceiptAnalysisOut)
+async def analyze_receipt(file: UploadFile = File(...)):
+    """OCR + classify an uploaded file WITHOUT persisting anything.
+
+    Used by the Add-expense page to pre-fill the form before the expense is saved.
+    The bytes are written to a private OS temp file (local, cleaned up immediately)
+    because both pypdf and Vision need a real filesystem path.
+    """
+    content, ext, _original = _read_validated_upload(file, await file.read())
+
+    tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+    try:
+        tmp.write(content)
+        tmp.flush()
+        tmp.close()
+        text, method = ocr.extract_text(Path(tmp.name))
+        result = analyze_text(text)
+        result["method"] = method
+        return ReceiptAnalysisOut(**result)
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+
+
+@router.post("/expenses/{expense_id}/analyze", response_model=ExpenseOut)
+def reanalyze_expense(expense_id: int, db: Session = Depends(get_db)):
+    """Re-run the auto-review over an expense's existing receipts and persist it."""
+    expense = db.get(HSAExpense, expense_id)
+    if not expense:
+        raise HTTPException(404, "Expense not found")
+    _review_expense(db, expense)
+    db.refresh(expense)
+    return _to_expense_out(expense, _coverage_map(db, [expense.id]))
 
 
 @router.delete("/receipts/{receipt_id}", status_code=204)

@@ -35,6 +35,13 @@ class HSAExpense(Base):
         ForeignKey("reimbursements.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # Auto-review of receipts (local OCR + rule-based eligibility hint). Advisory only.
+    #   auto_review_status:   "not_analyzed" | "eligible" | "needs_review" | "ineligible"
+    #   auto_review_notes:    human-readable summary shown in the UI
+    #   auto_review_metadata: JSON blob (matched keywords, extracted fields, confidence, method)
+    auto_review_status   = Column(String, nullable=False, default="not_analyzed")
+    auto_review_notes    = Column(Text, nullable=True)
+    auto_review_metadata = Column(Text, nullable=True)
     created_at       = Column(DateTime, default=datetime.utcnow)
 
     receipts   = relationship("Receipt", back_populates="expense", cascade="all, delete-orphan")

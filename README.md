@@ -39,13 +39,13 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 
 ### macOS (recommended)
 
-1. Download `Stowe-0.6.0.dmg` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
+1. Download `Stowe-0.7.0.dmg` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
 2. Open the DMG and drag **Stowe** into **Applications**.
 3. Open **Stowe** from Applications. The build is signed with a Developer ID and notarized by Apple, so it launches normally — no Gatekeeper bypass needed.
 
 ### Windows
 
-1. Download `Stowe-0.6.0-windows-setup.exe` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
+1. Download `Stowe-0.7.0-windows-setup.exe` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
 2. Run the installer and follow the prompts. No administrator rights are required — Stowe installs to `%LOCALAPPDATA%\Programs\Stowe\`.
 3. A Start Menu entry and an optional Desktop shortcut are created automatically.
 4. **Prerequisite:** Microsoft Edge WebView2 Runtime. It ships pre-installed with Windows 10 (version 1803 or later) and Windows 11. If needed, download it from [microsoft.com/edge/webview2](https://developer.microsoft.com/microsoft-edge/webview2/).
