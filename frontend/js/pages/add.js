@@ -1,5 +1,13 @@
 import { api } from "../api.js";
 import { state, toast } from "../app.js";
+import {
+  RECEIPT_ACCEPT,
+  fileKey,
+  formatFileSize,
+  installReceiptDropTarget,
+  mergeReceiptFiles,
+  uploadReceiptFiles,
+} from "../receiptFiles.js";
 
 export async function render(container) {
   const today = new Date().toLocaleDateString("en-CA");
@@ -42,18 +50,16 @@ export async function render(container) {
         </div>
         <hr class="divider">
         <div class="form-group">
-          <label>Receipt (optional)</label>
+          <label>Receipts (optional)</label>
           <div class="camera-btn-wrap">
             <label class="camera-btn" id="camera-label">
               <span class="camera-btn-icon">📷</span>
-              <span id="camera-label-text">Attach Receipt — Photo or File</span>
-              <input type="file" accept="image/*,application/pdf" capture="environment" id="receipt-file" style="display:none">
+              <span id="camera-label-text">Attach Receipts — Photos or Files</span>
+              <input type="file" accept="${RECEIPT_ACCEPT}" capture="environment" multiple id="receipt-file" style="display:none">
             </label>
           </div>
-          <div id="file-preview" class="mt-8" style="display:none">
-            <span id="file-name" style="font-size:13px;color:var(--accent)"></span>
-            <button type="button" id="clear-file" class="btn btn-secondary btn-sm" style="margin-left:8px">Remove</button>
-          </div>
+          <div id="file-preview" class="selected-file-list mt-8" style="display:none"></div>
+          <button type="button" id="clear-file" class="btn btn-secondary btn-sm" style="display:none;margin-top:8px">Remove</button>
         </div>
         <button type="submit" id="submit-btn" class="btn btn-primary btn-full" style="margin-top:8px;padding:12px">
           Save Expense
@@ -71,24 +77,85 @@ export async function render(container) {
     </div>
   `;
 
-  // File selection display
   const fileInput = document.getElementById("receipt-file");
   const filePreview = document.getElementById("file-preview");
-  const fileName = document.getElementById("file-name");
+  const dropTarget = document.getElementById("camera-label");
   const labelText = document.getElementById("camera-label-text");
   const clearFileBtn = document.getElementById("clear-file");
+  let selectedFiles = [];
+  let lastAnalyzedKey = "";
 
-  fileInput.addEventListener("change", () => {
-    const f = fileInput.files[0];
-    if (f) {
-      fileName.textContent = f.name;
-      filePreview.style.display = "";
-      labelText.textContent = "Change Receipt";
-      autoFillFromReceipt(f);
-    } else {
+  function receiptLabel() {
+    if (selectedFiles.length === 0) return "Attach Receipts — Photos or Files";
+    if (selectedFiles.length === 1) return "Add or Change Receipt";
+    return `Add More Receipts (${selectedFiles.length} selected)`;
+  }
+
+  function renderSelectedFiles() {
+    labelText.textContent = receiptLabel();
+    clearFileBtn.style.display = selectedFiles.length ? "" : "none";
+    clearFileBtn.textContent = selectedFiles.length > 1 ? "Remove All" : "Remove";
+
+    if (!selectedFiles.length) {
       filePreview.style.display = "none";
-      labelText.textContent = "Attach Receipt — Photo or File";
+      filePreview.innerHTML = "";
+      return;
     }
+
+    filePreview.style.display = "";
+    filePreview.innerHTML = "";
+    selectedFiles.forEach((file, index) => {
+      const row = document.createElement("div");
+      row.className = "selected-file-row";
+
+      const name = document.createElement("span");
+      name.className = "selected-file-name";
+      name.textContent = file.name;
+
+      const meta = document.createElement("span");
+      meta.className = "selected-file-meta";
+      meta.textContent = formatFileSize(file.size);
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "selected-file-remove";
+      remove.dataset.fileRemove = String(index);
+      remove.title = "Remove file";
+      remove.textContent = "×";
+
+      row.append(name, meta, remove);
+      filePreview.appendChild(row);
+    });
+  }
+
+  function maybeAnalyzeFirstReceipt() {
+    const first = selectedFiles[0];
+    if (!first) return;
+    const key = fileKey(first);
+    if (key === lastAnalyzedKey) return;
+    lastAnalyzedKey = key;
+    autoFillFromReceipt(first);
+  }
+
+  function addReceiptFiles(files) {
+    selectedFiles = mergeReceiptFiles(selectedFiles, files);
+    renderSelectedFiles();
+    maybeAnalyzeFirstReceipt();
+  }
+
+  installReceiptDropTarget({
+    input: fileInput,
+    dropTarget,
+    onFiles: addReceiptFiles,
+    onReject: files => toast(`${files.length} unsupported file${files.length !== 1 ? "s" : ""} skipped`, "error"),
+  });
+
+  filePreview.addEventListener("click", e => {
+    const btn = e.target.closest("[data-file-remove]");
+    if (!btn) return;
+    selectedFiles.splice(parseInt(btn.dataset.fileRemove), 1);
+    renderSelectedFiles();
+    maybeAnalyzeFirstReceipt();
   });
 
   // Auto-analyze the attached receipt and pre-fill blank fields. Best-effort:
@@ -106,7 +173,7 @@ export async function render(container) {
       el.addEventListener("input", () => el.classList.remove("field-autofilled"), { once: true });
     };
 
-    labelText.textContent = "Analyzing receipt…";
+    labelText.textContent = "Analyzing first receipt…";
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -124,17 +191,18 @@ export async function render(container) {
         setFilled(categoryEl, a.category); filledAny = true;
       }
 
-      labelText.textContent = "Change Receipt";
+      labelText.textContent = receiptLabel();
       if (filledAny) toast("Receipt scanned — review the highlighted fields");
     } catch (err) {
-      labelText.textContent = "Change Receipt";  // analysis is optional; stay silent
+      labelText.textContent = receiptLabel();  // analysis is optional; stay silent
     }
   }
 
   clearFileBtn.addEventListener("click", () => {
     fileInput.value = "";
-    filePreview.style.display = "none";
-    labelText.textContent = "Attach Receipt — Photo or File";
+    selectedFiles = [];
+    lastAnalyzedKey = "";
+    renderSelectedFiles();
   });
 
   // Form submit
@@ -156,11 +224,14 @@ export async function render(container) {
     try {
       const expense = await api.expenses.create(body);
 
-      const file = fileInput.files[0];
-      if (file) {
-        const receiptFd = new FormData();
-        receiptFd.append("file", file);
-        await api.expenses.uploadReceipt(expense.id, receiptFd);
+      if (selectedFiles.length) {
+        btn.textContent = selectedFiles.length === 1 ? "Uploading receipt…" : `Uploading 0/${selectedFiles.length} receipts…`;
+        await uploadReceiptFiles(
+          expense.id,
+          selectedFiles,
+          api.expenses.uploadReceipt,
+          (done, total) => { btn.textContent = `Uploading ${done}/${total} receipts…`; },
+        );
       }
 
       document.getElementById("add-form").classList.add("hidden");
@@ -180,8 +251,10 @@ export async function render(container) {
     form.classList.remove("hidden");
     form.reset();
     form.querySelector("input[name='date']").value = new Date().toISOString().slice(0, 10);
-    filePreview.style.display = "none";
-    labelText.textContent = "Attach Receipt — Photo or File";
+    fileInput.value = "";
+    selectedFiles = [];
+    lastAnalyzedKey = "";
+    renderSelectedFiles();
     document.getElementById("submit-btn").disabled = false;
     document.getElementById("submit-btn").textContent = "Save Expense";
     document.getElementById("merchant-input").focus();

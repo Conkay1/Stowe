@@ -57,6 +57,30 @@ def test_upload_and_fetch_receipt(client):
     assert res.content.startswith(b"\x89PNG")
 
 
+def test_multiple_receipts_attach_to_one_expense(client):
+    expense = _make_expense(client)
+    uploads = [
+        ("receipt-a.png", b"\x89PNG\r\n\x1a\n" + b"a" * 10, "image/png"),
+        ("receipt-b.pdf", b"%PDF-1.4 fake", "application/pdf"),
+    ]
+
+    receipt_ids = []
+    for name, content, mime in uploads:
+        res = client.post(
+            f"/api/v1/expenses/{expense['id']}/receipts",
+            files={"file": (name, io.BytesIO(content), mime)},
+        )
+        assert res.status_code == 201, res.text
+        receipt_ids.append(res.json()["id"])
+
+    detail = client.get(f"/api/v1/expenses/{expense['id']}").json()
+    assert [r["original_filename"] for r in detail["receipts"]] == ["receipt-a.png", "receipt-b.pdf"]
+
+    for receipt_id in receipt_ids:
+        res = client.get(f"/api/v1/receipts/{receipt_id}/file")
+        assert res.status_code == 200
+
+
 def test_reject_oversized_receipt(client):
     expense = _make_expense(client)
     huge = b"\x00" * (11 * 1024 * 1024)

@@ -1,5 +1,6 @@
 import { api } from "../api.js";
 import { state, toast, openModal, closeModal } from "../app.js";
+import { RECEIPT_ACCEPT, installReceiptDropTarget, uploadReceiptFiles } from "../receiptFiles.js";
 
 const fmt = n => "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -335,10 +336,10 @@ async function showManageModal(id) {
     <div class="modal-title" style="margin-bottom:8px">Receipts (${expense.receipts.length})</div>
     <div class="receipt-grid" id="receipt-grid">${renderReceiptGrid(expense.receipts)}</div>
     <div class="camera-btn-wrap">
-      <label class="camera-btn">
+      <label class="camera-btn" id="receipt-upload-label">
         <span class="camera-btn-icon">📷</span>
-        <span>Add Receipt — Photo or File</span>
-        <input type="file" accept="image/*,application/pdf" capture="environment" id="receipt-upload" style="display:none">
+        <span id="receipt-upload-text">Add Receipts — Photos or Files</span>
+        <input type="file" accept="${RECEIPT_ACCEPT}" capture="environment" multiple id="receipt-upload" style="display:none">
       </label>
     </div>
     <hr class="divider">
@@ -395,14 +396,24 @@ async function showManageModal(id) {
   });
 
   // Receipt upload
-  document.getElementById("receipt-upload").addEventListener("change", async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append("file", file);
+  const receiptInput = document.getElementById("receipt-upload");
+  const receiptUploadText = document.getElementById("receipt-upload-text");
+  const receiptUploadLabel = document.getElementById("receipt-upload-label");
+  let uploadInFlight = false;
+
+  async function handleReceiptFiles(files) {
+    if (!files.length || uploadInFlight) return;
+    uploadInFlight = true;
+    receiptInput.disabled = true;
+    receiptUploadText.textContent = files.length === 1 ? "Uploading receipt…" : `Uploading 0/${files.length} receipts…`;
     try {
-      await api.expenses.uploadReceipt(id, fd);
-      toast("Receipt added");
+      await uploadReceiptFiles(
+        id,
+        files,
+        api.expenses.uploadReceipt,
+        (done, total) => { receiptUploadText.textContent = `Uploading ${done}/${total} receipts…`; },
+      );
+      toast(`${files.length} receipt${files.length !== 1 ? "s" : ""} added`);
       const updated = await api.expenses.get(id);
       document.getElementById("receipt-grid").innerHTML = renderReceiptGrid(updated.receipts);
       attachReceiptDeleteListeners(id);
@@ -412,7 +423,19 @@ async function showManageModal(id) {
       await loadAll();
     } catch (err) {
       toast(err.message, "error");
+    } finally {
+      receiptInput.disabled = false;
+      receiptInput.value = "";
+      receiptUploadText.textContent = "Add Receipts — Photos or Files";
+      uploadInFlight = false;
     }
+  }
+
+  installReceiptDropTarget({
+    input: receiptInput,
+    dropTarget: receiptUploadLabel,
+    onFiles: handleReceiptFiles,
+    onReject: files => toast(`${files.length} unsupported file${files.length !== 1 ? "s" : ""} skipped`, "error"),
   });
 
   attachReceiptDeleteListeners(id);
