@@ -317,7 +317,33 @@ input.field-autofilled, select.field-autofilled {
   transition: border-color .15s, background .15s;
 }
 .camera-btn:hover { border-color: var(--accent); background: var(--surface); }
+.camera-btn.drag-over {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
 .camera-btn-icon { font-size: 24px; }
+
+.selected-file-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.selected-file-row {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 38px; padding: 7px 9px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.selected-file-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; color: var(--text); font-size: 13px;
+}
+.selected-file-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.selected-file-remove {
+  width: 22px; height: 22px; flex: 0 0 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 50%;
+  background: var(--surface); color: var(--muted);
+  cursor: pointer; line-height: 1;
+}
+.selected-file-remove:hover { color: var(--text); border-color: var(--accent); }
 
 /* ── Vault hero ───────────────────────────────────────────────── */
 .vault-hero {
