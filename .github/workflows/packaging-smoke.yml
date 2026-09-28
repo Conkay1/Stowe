@@ -1,0 +1,274 @@
+# Throwaway verification for draft PR #16 (localhost bind + vendored Chart.js).
+# This workflow lives only on ci/packaging-smoke-pr16. Do not merge it to main.
+#
+# Builds are unsigned on purpose: the owner's Apple Developer ID and Windows
+# certificates are not available, and notarization is not attempted.
+# macOS steps follow scripts/build-macos.sh through PyInstaller and hdiutil,
+# and stop before codesign / notarytool / stapler. Windows runs
+# scripts/build-windows.ps1, which has no signing step.
+
+name: Packaging smoke (throwaway, PR 16)
+
+on:
+  push:
+    branches:
+      - ci/packaging-smoke-pr16
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packaging-smoke-pr16-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS unsigned DMG
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runner info
+        shell: bash
+        run: |
+          set -euo pipefail
+          sw_vers
+          uname -a
+          echo "UNSIGNED BUILD: no Developer ID, no notarization, no Gatekeeper pass expected."
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+          python - <<'PY'
+          import pathlib
+          import webview
+          hooks = pathlib.Path(webview.__file__).parent / "__pyinstaller"
+          print(f"pywebview hooks: {hooks}")
+          if not hooks.is_dir():
+              raise SystemExit(f"missing hooks dir: {hooks}")
+          print("hooks:", sorted(p.name for p in hooks.iterdir()))
+          PY
+          HOOKS="$(python -c 'import pathlib,webview; print(pathlib.Path(webview.__file__).parent / "__pyinstaller")')"
+          # stowe.spec hardcodes this hookspath. Point it at the installed hooks
+          # without editing the spec.
+          sudo mkdir -p /opt/homebrew/lib/python3.11/site-packages/webview
+          sudo ln -sfn "$HOOKS" /opt/homebrew/lib/python3.11/site-packages/webview/__pyinstaller
+          ls -la /opt/homebrew/lib/python3.11/site-packages/webview/__pyinstaller
+
+      - name: PyInstaller app and unsigned DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "UNSIGNED BUILD: scripts/build-macos.sh is not invoked because it requires DEVELOPER_ID and notarization."
+          echo "Replaying its PyInstaller and hdiutil steps only."
+          python - <<'PY'
+          import os, re, pathlib
+          text = pathlib.Path("stowe.spec").read_text(encoding="utf-8")
+          m = re.search(r"CFBundleShortVersionString['\"]\s*:\s*['\"]([^'\"]+)", text)
+          if not m:
+              raise SystemExit("CFBundleShortVersionString not found in stowe.spec")
+          version = m.group(1)
+          dest = pathlib.Path(os.environ["RUNNER_TEMP"]) / "stowe-version"
+          dest.write_text(version, encoding="utf-8")
+          env = pathlib.Path(os.environ["GITHUB_ENV"])
+          with env.open("a", encoding="utf-8") as fh:
+              fh.write(f"STOWE_VERSION={version}\n")
+          print(version)
+          PY
+          python -m PyInstaller stowe.spec --noconfirm 2>&1 | tee "$RUNNER_TEMP/pyinstaller-macos.log"
+          test -d dist/Stowe.app
+          echo "Vendored Chart.js inside the app bundle:"
+          find dist/Stowe.app -path '*chartjs*' -print
+          VERSION="$(cat "$RUNNER_TEMP/stowe-version")"
+          DMG_STAGING="dist/dmg-staging"
+          rm -rf "$DMG_STAGING"
+          mkdir -p "$DMG_STAGING"
+          cp -R dist/Stowe.app "$DMG_STAGING/"
+          ln -s /Applications "$DMG_STAGING/Applications"
+          hdiutil create -volname "Stowe" -srcfolder "$DMG_STAGING" \
+            -ov -format UDZO "Stowe-${VERSION}.dmg"
+          echo "UNSIGNED DMG: not codesigned, not notarized, not stapled."
+          ls -lh "Stowe-${VERSION}.dmg"
+          codesign -dv "Stowe-${VERSION}.dmg" || true
+
+      - name: Install Playwright Chromium
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python -m pip install playwright
+          python -m playwright install chromium
+
+      - name: Smoke-test the DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/ci/packaging_smoke.py \
+            --platform macos \
+            --dmg "Stowe-${STOWE_VERSION}.dmg" \
+            --screenshot "$RUNNER_TEMP/ledger.png" \
+            --report "$RUNNER_TEMP/report.json" \
+            --log "$RUNNER_TEMP/smoke.log"
+
+      - name: Upload unsigned DMG
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stowe-macos-unsigned-dmg
+          path: Stowe-*.dmg
+          if-no-files-found: warn
+
+      - name: Collect macOS smoke files
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p ci-output
+          cp -f "$RUNNER_TEMP/report.json" ci-output/ 2>/dev/null || true
+          cp -f "$RUNNER_TEMP/smoke.log" ci-output/ 2>/dev/null || true
+          cp -f "$RUNNER_TEMP/ledger.png" ci-output/ 2>/dev/null || true
+          cp -f "$RUNNER_TEMP/desktop.png" ci-output/ 2>/dev/null || true
+          cp -f "$RUNNER_TEMP/pyinstaller-macos.log" ci-output/ 2>/dev/null || true
+          cp -f "$RUNNER_TEMP"/Stowe*.ips ci-output/ 2>/dev/null || true
+          cp -f "$RUNNER_TEMP"/Stowe*.crash ci-output/ 2>/dev/null || true
+          ls -la ci-output || true
+
+      - name: Upload macOS smoke output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaging-smoke-macos
+          path: ci-output/
+          if-no-files-found: warn
+
+  windows:
+    name: Windows unsigned installer
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runner info
+        shell: pwsh
+        run: |
+          Write-Host "UNSIGNED BUILD: no Authenticode signing. SmartScreen is not tested."
+          [Environment]::OSVersion | Format-List
+          py -0p
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3010) { exit $LASTEXITCODE }
+          $candidates = @(
+            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+            "C:\Program Files\Inno Setup 6\ISCC.exe"
+          )
+          $found = $candidates | Where-Object { Test-Path $_ }
+          if (-not $found) { throw "ISCC.exe not found after choco install" }
+          Write-Host "Using $($found[0])"
+
+      - name: Confirm Python launcher sees 3.12
+        shell: pwsh
+        run: |
+          py -3.12 -c "import sys; print(sys.executable); print(sys.version)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build with scripts/build-windows.ps1
+        shell: pwsh
+        run: |
+          Write-Host "UNSIGNED BUILD: build-windows.ps1 has no signing step."
+          # Run under Windows PowerShell so the script's exit code is the process exit code.
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1 *> "$env:RUNNER_TEMP\build-windows.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem -Recurse dist\Stowe -Filter chart.umd.min.js | Select-Object -ExpandProperty FullName
+          Get-ChildItem -Filter "Stowe-*-windows-setup.exe" | Format-Table Name, Length
+
+      - name: Silent-install the unsigned installer
+        shell: pwsh
+        run: |
+          $inst = Get-ChildItem -Filter "Stowe-*-windows-setup.exe" | Select-Object -First 1
+          if (-not $inst) { throw "installer was not produced" }
+          $log = Join-Path $env:RUNNER_TEMP "inno-install.log"
+          $proc = Start-Process -FilePath $inst.FullName -ArgumentList @(
+            "/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES", "/LOG=$log"
+          ) -Wait -PassThru
+          Write-Host "installer exit code $($proc.ExitCode)"
+          if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }
+          $exe = Join-Path $env:LOCALAPPDATA "Programs\Stowe\Stowe.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Host "Expected $exe"
+            Get-ChildItem -Recurse -Filter Stowe.exe (Join-Path $env:LOCALAPPDATA "Programs") -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty FullName
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_ENV -Value "STOWE_EXE=$exe"
+          Write-Host "Installed $exe"
+          Get-AuthenticodeSignature -FilePath $exe | Format-List Status, StatusMessage
+          Get-AuthenticodeSignature -FilePath $inst.FullName | Format-List Status, StatusMessage
+
+      - name: Install Playwright Chromium
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          python -m pip install playwright
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m playwright install chromium
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Smoke-test the installed app
+        shell: pwsh
+        run: |
+          python scripts/ci/packaging_smoke.py `
+            --platform windows `
+            --executable "$env:STOWE_EXE" `
+            --screenshot "$env:RUNNER_TEMP\ledger.png" `
+            --report "$env:RUNNER_TEMP\report.json" `
+            --log "$env:RUNNER_TEMP\smoke.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload unsigned installer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stowe-windows-unsigned-setup
+          path: Stowe-*-windows-setup.exe
+          if-no-files-found: warn
+
+      - name: Collect Windows smoke files
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force ci-output | Out-Null
+          foreach ($name in @("report.json", "smoke.log", "ledger.png", "desktop.png", "build-windows.log", "inno-install.log")) {
+            $src = Join-Path $env:RUNNER_TEMP $name
+            if (Test-Path $src) { Copy-Item $src ci-output\ }
+          }
+          Get-ChildItem ci-output | Format-Table Name, Length
+
+      - name: Upload Windows smoke output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaging-smoke-windows
+          path: ci-output/
+          if-no-files-found: warn
