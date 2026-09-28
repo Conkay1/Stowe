@@ -16,6 +16,8 @@ a = Analysis(
     pathex=['.'],
     binaries=[],
     datas=[
+        # Whole frontend tree, including the vendored Chart.js build and its
+        # license at frontend/vendor/chartjs/ (no CDN fetch at runtime).
         ('frontend', 'frontend'),
         ('assets',   'assets'),
     ],

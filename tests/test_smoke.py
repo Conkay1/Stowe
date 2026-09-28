@@ -1004,6 +1004,16 @@ def test_reconciliation_amount_mismatch_leaves_both_unmatched(client):
     assert data["matched"] == []
 
 
+def test_default_bind_host_is_loopback():
+    """Source and packaged launches both use this host in run.py."""
+    import inspect
+    import run
+
+    assert run.BIND_HOST == "127.0.0.1"
+    assert "host=BIND_HOST" in inspect.getsource(run._start_uvicorn)
+    assert "(BIND_HOST, port)" in inspect.getsource(run.find_free_port)
+
+
 def test_reconciliation_manual_match_and_unmatch(client):
     """POST /distributions/{id}/match links a distribution to a pull;
     DELETE /distributions/{id}/match reverses it."""
