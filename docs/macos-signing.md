@@ -2,15 +2,35 @@
 
 The macOS DMG is signed with an Apple Developer ID and notarized by Apple, so
 it launches without the Gatekeeper "Apple cannot check it for malicious
-software" warning. This document covers the one-time setup and the failure
-modes you'll hit if something goes wrong.
+software" warning. This document covers the one-time setup, CI secrets, and
+the failure modes you'll hit if something goes wrong.
 
-For day-to-day building, just run:
+For a signed local build:
 
 ```bash
 export DEVELOPER_ID="Developer ID Application: Your Name (TEAMID)"
 ./scripts/build-macos.sh
 ```
+
+Windows Authenticode signing is covered in
+[windows-signing.md](windows-signing.md). The manual GitHub Actions workflow
+that builds both platforms is
+[`.github/workflows/release-build.yml`](../.github/workflows/release-build.yml).
+It runs only when someone starts it (`workflow_dispatch`). It does not publish
+a GitHub Release.
+
+## Unsigned builds
+
+If `DEVELOPER_ID` is unset, `scripts/build-macos.sh` prints a warning and
+still produces `dist/Stowe.app` and `Stowe-<version>.dmg`. Codesign,
+notarization, stapling, and the Gatekeeper `spctl` checks are skipped.
+
+Older versions of the script aborted immediately when `DEVELOPER_ID` was
+missing (`DEVELOPER_ID:?`). No test or other script in this repository
+required that abort, so the script now warns and continues with an unsigned
+artifact. Set `DEVELOPER_ID` to the exact `Developer ID Application: ...
+(TEAMID)` identity string when you want a signed build. Certificate secrets
+alone do not turn signing on.
 
 ## One-time setup
 
@@ -62,8 +82,10 @@ xcrun notarytool store-credentials stowe-notary \
 ```
 
 This writes a profile called `stowe-notary` to your login keychain. The build
-script references it by name, so the actual credentials never live in the
-repo or in environment variables.
+script references it by name, so a local build does not need notarization
+credentials in the environment. CI uses the secrets in the next section
+instead of a keychain profile; those values stay in the CI secret store and
+are not committed.
 
 Smoke test:
 
@@ -74,6 +96,92 @@ xcrun notarytool history --keychain-profile stowe-notary
 Should return an empty history without auth errors. If you hit
 `HTTP 401`, the app-specific password is wrong; if you hit `HTTP 403`, the
 team ID is wrong.
+
+## CI signing (GitHub Actions secrets)
+
+`.github/workflows/release-build.yml` maps repository secrets into the
+environment for `scripts/build-macos.sh`. Add them under
+**Settings → Secrets and variables → Actions**. Do not commit the values.
+
+The local keychain-profile flow above is unchanged. The CI path runs only
+when both certificate secrets are set (and `DEVELOPER_ID` is set, otherwise
+the build stays unsigned):
+
+| Secret | Required for a signed CI build | Purpose |
+| --- | --- | --- |
+| `DEVELOPER_ID` | Yes | `Developer ID Application: Your Name (TEAMID)`. This is the signing identity string, not the certificate itself. |
+| `MACOS_CERT_P12_BASE64` | Yes, unless the runner already has the cert in its keychain | Base64 of the Developer ID `.p12` (certificate plus private key). Whitespace is ignored. |
+| `MACOS_CERT_PASSWORD` | Yes, with the `.p12` | Password for that `.p12`. |
+
+When those two certificate secrets are set, the script creates a job-local
+keychain, imports the `.p12`, puts that keychain on the user search list
+(and makes it the default for the job), sets the key partition list so
+`codesign` can use the private key without a prompt, and deletes the
+keychain on exit — including when the build fails.
+
+Encode the `.p12` without writing it into the repo:
+
+```bash
+# macOS
+base64 -i Certificates.p12 | pbcopy
+
+# Linux
+base64 -w 0 Certificates.p12
+```
+
+Paste the output into the `MACOS_CERT_P12_BASE64` secret.
+
+### Notarization credentials
+
+For a signed build the script always notarizes. It picks the first complete
+set of credentials:
+
+1. **App Store Connect API key** — `notarytool submit --key --key-id --issuer`
+   - `APPLE_API_KEY_P8_BASE64` (base64 of the `.p8` file), or
+     `APPLE_API_KEY_PATH` (a path already on the machine; not a GitHub secret).
+     If both are set, the path is used.
+   - `APPLE_API_KEY_ID`
+   - `APPLE_API_ISSUER_ID`
+2. **Apple ID** — `notarytool submit --apple-id --password --team-id`
+   - `APPLE_ID`
+   - `APPLE_APP_PASSWORD` (app-specific password, not your Apple ID password)
+   - `APPLE_TEAM_ID`
+3. **Keychain profile** — `notarytool submit --keychain-profile`
+   - `KEYCHAIN_PROFILE` (optional; default `stowe-notary`)
+
+Setting any variable from group 1 without the rest of that group is an
+error (the script does not silently fall through). Same for a partial
+group 2. If no notarization variables are set, it uses the keychain
+profile. GitHub-hosted runners do not have that profile, so a signed CI
+build needs group 1 or group 2.
+
+| Secret | Group |
+| --- | --- |
+| `APPLE_API_KEY_P8_BASE64` | API key (preferred on CI) |
+| `APPLE_API_KEY_ID` | API key |
+| `APPLE_API_ISSUER_ID` | API key |
+| `APPLE_ID` | Apple ID |
+| `APPLE_APP_PASSWORD` | Apple ID |
+| `APPLE_TEAM_ID` | Apple ID |
+
+`APPLE_API_KEY_PATH` is an environment variable for a `.p8` that already
+exists on disk. The workflow does not map it; CI should use
+`APPLE_API_KEY_P8_BASE64`.
+
+```bash
+# macOS
+base64 -i AuthKey_ABCDE12345.p8 | pbcopy
+```
+
+## What gets signed
+
+Nested `.dylib`, `.so`, and `.framework` binaries are signed inside-out
+with `--options runtime --timestamp` and **no** entitlements. App
+entitlements on a nested library are a common notarization rejection.
+
+`assets/entitlements.plist` is passed only to `Contents/MacOS/Stowe` and
+the outer `Stowe.app`. The DMG is signed with the Developer ID and a
+timestamp, then notarized and stapled separately.
 
 ## Common failure modes
 
@@ -90,7 +198,8 @@ The `submission-id` is printed by `notarytool submit`.
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `code object is not signed at all` during `codesign --verify`               | A nested file extension was missed by the find glob.                                   | Add the extension (or check for `.framework` bundles) in `scripts/build-macos.sh`.           |
 | Notary log: `The executable does not have the hardened runtime enabled.`    | Forgot `--options runtime` on at least one binary.                                     | Make sure every `codesign` call in the build script passes `--options runtime`.              |
-| Notary log: `The signature of the binary is invalid.`                       | Signed the outer `.app` before its inner binaries (Apple requires inside-out signing). | Re-run the deep-sign loop in the order the script defines: dylibs/sos → frameworks → MacOS/Stowe → outer .app. |
+| Notary log: `The signature of the binary is invalid.`                       | Signed the outer `.app` before its inner binaries (Apple requires inside-out signing). | Re-run the deep-sign loop in the order the script defines: dylibs/sos → frameworks → MacOS/Stowe → outer .app. Entitlements are applied only on the last two. |
+| Notary log cites an entitlement on a `.dylib`, `.so`, or framework         | App entitlements were applied to a nested library.                                     | Nested Mach-O files are signed with `--options runtime --timestamp` only. Entitlements belong on `Contents/MacOS/Stowe` and the outer `.app`. |
 | App launches then immediately quits, Console shows `EXC_BAD_ACCESS (Code Signature Invalid)`. | Entitlements were not actually applied to the executable.                              | `codesign -d --entitlements :- /Applications/Stowe.app` should print the plist. If empty, re-sign. |
 | `spctl: rejected source=Unnotarized Developer ID` after stapling.           | `xcrun stapler staple` failed silently, or ran on the wrong artifact.                  | `xcrun stapler validate` on both `.app` and `.dmg`. Re-staple if either fails.               |
 | Notary "Accepted" but `stapler staple` says `Could not find base64 ticket`. | Apple's CDN hasn't propagated the ticket yet (rare).                                   | Wait 30 seconds and retry the staple.                                                        |
@@ -101,4 +210,6 @@ The `submission-id` is printed by `notarytool submit`.
 built-in signing only signs the top-level `Stowe` Mach-O — every nested
 `.dylib` and `.so` (Pillow, pydantic_core, ssl modules, etc.) goes
 unsigned, and notarization rejects the bundle. The script signs everything
-inside-out, which is what Apple's TN3147 recommends.
+inside-out, which is what Apple's TN3147 recommends. Nested libraries get
+the hardened runtime and a timestamp only; the entitlements plist is
+applied to the main executable and the `.app` bundle.

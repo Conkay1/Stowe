@@ -9,12 +9,110 @@
 #   .\scripts\build-windows.ps1
 #
 # Output: Stowe-<version>-windows-setup.exe in the repo root.
+#
+# Optional Authenticode signing (see docs/windows-signing.md). Leave both
+# certificate variables unset for an unsigned build:
+#   WINDOWS_CERT_PFX_BASE64   Base64-encoded code-signing .pfx
+#   WINDOWS_CERT_PASSWORD     Password for that .pfx
+#   WINDOWS_TIMESTAMP_URL     RFC3161 timestamp URL
+#                             (default: http://timestamp.digicert.com)
+#
+# When signing is configured, dist\Stowe\Stowe.exe is signed before Inno
+# Setup runs (so the installed binary is signed) and the setup exe is
+# signed afterward. The temporary .pfx is deleted on exit.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Path of the decoded .pfx, if signing is enabled. The finally block deletes it.
+$script:StowePfxPath = $null
+
+function Find-SignTool {
+    $roots = @()
+    if (-not [string]::IsNullOrWhiteSpace(${env:ProgramFiles(x86)})) {
+        $roots += (Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\bin")
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:ProgramFiles)) {
+        $roots += (Join-Path $env:ProgramFiles "Windows Kits\10\bin")
+    }
+    $found = @()
+    foreach ($root in $roots) {
+        if ([string]::IsNullOrWhiteSpace($root)) { continue }
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+        $found += @(Get-ChildItem -LiteralPath $root -Recurse -Filter "signtool.exe" -ErrorAction SilentlyContinue)
+    }
+    $x64 = @($found | Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } | Sort-Object { $_.Directory.Name } -Descending)
+    if ($x64.Count -gt 0) {
+        return $x64[0].FullName
+    }
+    $any = @($found | Sort-Object { $_.Directory.Name } -Descending)
+    if ($any.Count -gt 0) {
+        return $any[0].FullName
+    }
+    $cmd = Get-Command "signtool.exe" -ErrorAction SilentlyContinue
+    if ($cmd) {
+        return $cmd.Source
+    }
+    return $null
+}
+
+function Import-StoweSigningPfx {
+    if ($script:StowePfxPath) {
+        return
+    }
+    $b64 = ($env:WINDOWS_CERT_PFX_BASE64 -replace '\s', '')
+    try {
+        $bytes = [Convert]::FromBase64String($b64)
+    } catch {
+        Write-Error "WINDOWS_CERT_PFX_BASE64 is not valid base64."
+        exit 1
+    }
+    $script:StowePfxPath = Join-Path ([System.IO.Path]::GetTempPath()) ("stowe-" + [guid]::NewGuid().ToString("n") + ".pfx")
+    [System.IO.File]::WriteAllBytes($script:StowePfxPath, $bytes)
+}
+
+function Invoke-StoweAuthenticodeSign {
+    param(
+        [Parameter(Mandatory = $true)][string]$SignTool,
+        [Parameter(Mandatory = $true)][string]$Target
+    )
+    $timestampUrl = "http://timestamp.digicert.com"
+    if (-not [string]::IsNullOrWhiteSpace($env:WINDOWS_TIMESTAMP_URL)) {
+        $timestampUrl = $env:WINDOWS_TIMESTAMP_URL.Trim()
+    }
+    Import-StoweSigningPfx
+    Write-Host "==> Signing $Target"
+    & $SignTool sign /fd SHA256 /tr $timestampUrl /td SHA256 /f $script:StowePfxPath /p $env:WINDOWS_CERT_PASSWORD $Target
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "signtool failed for $Target (exit $LASTEXITCODE)"
+        exit 1
+    }
+}
+
+try {
+
 $ROOT = Split-Path -Parent $PSScriptRoot
 Set-Location $ROOT
+
+# Fail before the long build if signing was only half-configured.
+$hasPfx = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERT_PFX_BASE64)
+$hasPfxPassword = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERT_PASSWORD)
+if ($hasPfx -xor $hasPfxPassword) {
+    Write-Error "WINDOWS_CERT_PFX_BASE64 and WINDOWS_CERT_PASSWORD must both be set to sign, or both left unset for an unsigned build."
+    exit 1
+}
+$signing = $hasPfx
+$signTool = $null
+if ($signing) {
+    $signTool = Find-SignTool
+    if (-not $signTool) {
+        Write-Error "signtool.exe not found. Install the Windows SDK (Windows Kits\10\bin\<version>\x64\signtool.exe)."
+        exit 1
+    }
+    Write-Host "==> Code signing enabled (Authenticode)"
+} else {
+    Write-Host "==> No Windows certificate configured — build will be unsigned"
+}
 
 # ── Version from stowe.iss ────────────────────────────────────────────────────
 $version = (Select-String -Path "stowe.iss" -Pattern '#define AppVersion\s+"([^"]+)"').Matches[0].Groups[1].Value
@@ -81,6 +179,11 @@ if (-not (Test-Path "dist\Stowe\Stowe.exe")) {
     exit 1
 }
 
+# Sign the payload before Inno Setup copies it into the installer.
+if ($signing) {
+    Invoke-StoweAuthenticodeSign -SignTool $signTool -Target "dist\Stowe\Stowe.exe"
+}
+
 # ── Inno Setup ────────────────────────────────────────────────────────────────
 Write-Host "==> Running Inno Setup"
 & $iscc "stowe.iss"
@@ -91,5 +194,15 @@ if (-not (Test-Path $installer)) {
     exit 1
 }
 
+if ($signing) {
+    Invoke-StoweAuthenticodeSign -SignTool $signTool -Target $installer
+}
+
 Write-Host ""
 Write-Host "Done: $installer  ($([math]::Round((Get-Item $installer).Length / 1MB, 1)) MB)"
+} finally {
+    if ($script:StowePfxPath -and (Test-Path -LiteralPath $script:StowePfxPath)) {
+        Remove-Item -LiteralPath $script:StowePfxPath -Force
+        $script:StowePfxPath = $null
+    }
+}
