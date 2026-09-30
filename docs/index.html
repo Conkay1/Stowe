@@ -242,7 +242,7 @@ python3 run.py</pre>
         <details>
           <summary>Does Stowe send anything over the internet?</summary>
           <p>The app listens on localhost (<code>127.0.0.1</code>) only, so other devices on your network cannot reach it. Receipts, expenses, and account details stay on your computer. There is no Stowe account, no analytics, no auto-update, and no telemetry. Every asset the interface uses, including the Chart.js chart library, is bundled and served by that local server. Opening the app does not fetch scripts, fonts, or stylesheets from the internet.</p>
-          <p>Two paths still use the network, and neither is part of normal use of the packaged app. Running from source makes <code>run.py</code> install Python dependencies with pip, which contacts PyPI. If you manually open the API reference at <code>/api/docs</code> or <code>/redoc</code>, the browser loads Swagger UI or ReDoc from a CDN (ReDoc also loads Google Fonts). The app does not open those pages itself.</p>
+          <p>Running from source makes <code>run.py</code> install Python dependencies with pip, which contacts PyPI. That install step is not part of the packaged app. The interactive API docs at <code>/api/docs</code> and <code>/redoc</code> are disabled, so the app does not load Swagger UI, ReDoc, or their CDN scripts and fonts.</p>
         </details>
         <details>
           <summary>How does the receipt auto-review work — does it use the cloud?</summary>

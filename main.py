@@ -2,7 +2,7 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -19,7 +19,15 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Stowe", docs_url="/api/docs", lifespan=lifespan)
+# Swagger and ReDoc load scripts from public CDNs. Nothing in the app reads
+# the schema, so those pages and /openapi.json stay unmounted.
+app = FastAPI(
+    title="Stowe",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+    lifespan=lifespan,
+)
 
 app.include_router(expenses.router)
 app.include_router(reimbursements.router)
@@ -31,6 +39,13 @@ app.include_router(system.router)
 _RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
 FRONTEND = _RESOURCE_ROOT / "frontend"
 app.mount("/static", StaticFiles(directory=str(FRONTEND)), name="static")
+
+
+@app.get("/api/docs", include_in_schema=False)
+@app.get("/redoc", include_in_schema=False)
+async def disabled_api_docs():
+    # Registered ahead of the SPA catch-all so these paths are a real 404.
+    raise HTTPException(status_code=404)
 
 
 @app.get("/{full_path:path}", include_in_schema=False)
