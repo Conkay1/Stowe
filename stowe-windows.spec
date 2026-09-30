@@ -22,6 +22,9 @@ a = Analysis(
         ('assets',   'assets'),
     ],
     hiddenimports=[
+        # Loopback bind host. run.py imports it; listed so the frozen app
+        # keeps the module even if the import is ever made indirect.
+        'stowe_net',
         # uvicorn
         'uvicorn.logging',
         'uvicorn.loops.auto',

@@ -28,7 +28,7 @@ if not FROZEN and sys.version_info < (3, 10):
 
 
 # No authentication on the API. Loopback only — do not bind a public or LAN interface.
-BIND_HOST = "127.0.0.1"
+from stowe_net import BIND_HOST
 
 
 def find_free_port(start=8000, end=8020) -> int:
