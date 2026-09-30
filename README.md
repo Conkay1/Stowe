@@ -70,6 +70,9 @@ Versions before 0.8.0 accepted connections from other devices on the local netwo
 - Database: `~/Library/Application Support/Stowe/database/stowe.db`
 - Receipts: `~/Library/Application Support/Stowe/receipts/`
 
+**Packaged app (Windows):**
+- Data lives at `%LOCALAPPDATA%\Stowe\` (database + receipts). To back up, copy that folder.
+
 **From source:**
 - Database: `./database/stowe.db` (inside the project folder)
 - Receipts: `./receipts/`

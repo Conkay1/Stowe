@@ -4,7 +4,7 @@ import sys
 
 from fastapi import APIRouter, HTTPException
 
-from config import DATA_DIR, DATABASE_PATH, RECEIPTS_DIR
+from config import DATA_DIR, DATABASE_PATH, RECEIPTS_DIR, ensure_private_dir
 
 router = APIRouter(prefix="/api/v1/system", tags=["system"])
 
@@ -20,7 +20,7 @@ def get_data_dir():
 
 @router.post("/reveal-data-dir")
 def reveal_data_dir():
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_private_dir(DATA_DIR)
     try:
         if sys.platform == "darwin":
             subprocess.Popen(["open", str(DATA_DIR)])
