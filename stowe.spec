@@ -1,7 +1,29 @@
 # PyInstaller spec for Stowe macOS .app
 # Build: /opt/homebrew/bin/python3.11 -m PyInstaller stowe.spec --noconfirm
 
+import pathlib
+import sys
+
+try:
+    import webview as _wv
+except ImportError:
+    sys.exit(
+        "pywebview is not installed for the Python running PyInstaller. "
+        "Install it in that environment (pip install pywebview) and rebuild."
+    )
+
 block_cipher = None
+
+# Locate pywebview's bundled PyInstaller hooks from the installed package.
+# Resolves for whatever interpreter runs PyInstaller (venv, python.org, Homebrew).
+_webview_hooks = pathlib.Path(_wv.__file__).resolve().parent / "__pyinstaller"
+if not _webview_hooks.is_dir():
+    sys.exit(
+        "pywebview is installed, but its PyInstaller hook directory was not "
+        f"found at {_webview_hooks}. Reinstall pywebview in the Python that "
+        "runs PyInstaller."
+    )
+_webview_hooks = str(_webview_hooks)
 
 a = Analysis(
     ['run.py'],
@@ -46,7 +68,7 @@ a = Analysis(
         'Quartz',
         'Vision',
     ],
-    hookspath=['/opt/homebrew/lib/python3.11/site-packages/webview/__pyinstaller'],
+    hookspath=[_webview_hooks],
     hooksconfig={},
     runtime_hooks=[],
     excludes=['tkinter', 'matplotlib', 'numpy', 'pandas', 'pytest'],
