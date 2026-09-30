@@ -5,9 +5,30 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from backend.db import init_db
 from backend.routers import accounts, expenses, reimbursements, categories, system
+
+
+def _allowed_hosts(*, include_testclient: bool | None = None) -> list[str]:
+    """Hostnames the API will accept.
+
+    uvicorn does not reject a forged Host header. A page on another origin can
+    DNS-rebind to 127.0.0.1 and call unauthenticated routes such as
+    GET /api/v1/export/zip. TrustedHostMiddleware compares the hostname after
+    stripping the port, so ``127.0.0.1:8000`` and ``localhost:8000`` match.
+
+    FastAPI's TestClient defaults to Host ``testserver``. That name is allowed
+    only while pytest is running; ``python3 run.py`` (browser and webview)
+    still talks to ``http://127.0.0.1:<port>`` and does not include it.
+    """
+    hosts = ["127.0.0.1", "localhost"]
+    if include_testclient is None:
+        include_testclient = "pytest" in sys.modules
+    if include_testclient:
+        hosts.append("testserver")
+    return hosts
 
 
 @asynccontextmanager
@@ -28,6 +49,7 @@ app = FastAPI(
     openapi_url=None,
     lifespan=lifespan,
 )
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=_allowed_hosts())
 
 app.include_router(expenses.router)
 app.include_router(reimbursements.router)
