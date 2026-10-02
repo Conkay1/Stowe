@@ -29,20 +29,28 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 - **Spending analytics** — see where your medical spending is going, by category and over time
 - **HSA account linking** — track HSA balance, contributions, and distributions in one place
 - **Custodian CSV import** — import distribution history from your HSA custodian and reconcile it against the Pulls you've recorded
-- **CSV export** — per-year or all-time, for your tax records or a spreadsheet
+- **CSV export** — one year (`stowe-ledger-YYYY.csv`) or all-time (`stowe-ledger.csv`): date, merchant, category, amount, whether it was reimbursed and when, receipt count, receipt filenames, and notes
+- **Zip backup** — `stowe-backup-YYYY-MM-DD.zip` with the SQLite database and receipt files
 - Light, dark, and sepia themes — switchable in Settings
 
 ---
 
 ## Install
 
-Stowe is currently available for macOS. You can also run it from source.
+Stowe 0.8.0 ships for macOS and Windows. You can also run it from source.
 
 ### macOS
 
 1. Download [`Stowe-0.8.0.dmg`](https://github.com/Conkay1/Stowe/releases/download/v0.8.0/Stowe-0.8.0.dmg).
 2. Open the DMG and drag **Stowe** into **Applications**.
 3. Open **Stowe** from Applications. The build is signed with a Developer ID and notarized by Apple, so it launches normally — no Gatekeeper bypass needed.
+
+### Windows
+
+1. Download [`Stowe-0.8.0-windows-setup.exe`](https://github.com/Conkay1/Stowe/releases/download/v0.8.0/Stowe-0.8.0-windows-setup.exe).
+2. Run the installer and follow the prompts. No administrator rights are required — Stowe installs to `%LOCALAPPDATA%\Programs\Stowe\`.
+3. A Start Menu entry and an optional Desktop shortcut are created automatically.
+4. **Prerequisite:** Microsoft Edge WebView2 Runtime. It ships pre-installed with Windows 10 (version 1803 or later) and Windows 11. If needed, download it from [microsoft.com/edge/webview2](https://developer.microsoft.com/microsoft-edge/webview2/).
 
 ### From source
 
@@ -100,7 +108,7 @@ pytest
 - SQLite via SQLAlchemy 2.x
 - Vanilla JavaScript frontend (no build step, no npm)
 - Uvicorn ASGI server
-- pywebview — native WKWebView window when packaged
+- pywebview — native WKWebView (macOS) or WebView2 (Windows) window when packaged
 - PWA-ready (manifest + service worker for offline cache)
 
 ---
