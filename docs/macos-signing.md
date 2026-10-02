@@ -93,9 +93,10 @@ Smoke test:
 xcrun notarytool history --keychain-profile stowe-notary
 ```
 
-Should return an empty history without auth errors. If you hit
-`HTTP 401`, the app-specific password is wrong; if you hit `HTTP 403`, the
-team ID is wrong.
+Should return an empty history without auth errors. `HTTP 401` means the
+app-specific password is wrong. `HTTP 403` (`required agreement missing or
+expired`) means a required agreement is pending or expired, or the team ID
+is wrong. See [Common failure modes](#common-failure-modes).
 
 ## CI signing (GitHub Actions secrets)
 
@@ -193,6 +194,13 @@ xcrun notarytool log <submission-id> --keychain-profile stowe-notary
 ```
 
 The `submission-id` is printed by `notarytool submit`.
+
+### `HTTP 403`: required agreement missing or expired
+
+`notarytool` can return `HTTP 403` with the message `required agreement missing or expired` after signing has already succeeded. Either of these is enough to cause it:
+
+- An Apple Developer Program License Agreement, or another required agreement, is pending or expired. The Account Holder signs in at <https://developer.apple.com/account> or [App Store Connect](https://appstoreconnect.apple.com), accepts the agreement, then reruns the build.
+- The team ID is wrong.
 
 | Symptom                                                                     | Cause                                                                                  | Fix                                                                                          |
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
