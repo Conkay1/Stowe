@@ -1,13 +1,25 @@
 # Manual macOS and Windows builds. Start this from the Actions tab.
 # It does not run on push or pull_request, and it does not publish a release.
+# workflow_dispatch input `platform`: both (default), windows, or macos.
 #
 # Signed output needs the secrets documented in docs/macos-signing.md and
 # docs/windows-signing.md. With those secrets unset, the jobs still build
-# unsigned artifacts.
+# unsigned artifacts. On Windows, a missing WINDOWS_CERT_PFX_BASE64 skips
+# Authenticode and the job summary says the installer is unsigned. A PFX
+# without WINDOWS_CERT_PASSWORD still fails. The macOS job is unchanged.
 name: Release build
 
 on:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Which installer to build
+        type: choice
+        options:
+          - both
+          - windows
+          - macos
+        default: both
 
 permissions:
   contents: read
@@ -15,6 +27,7 @@ permissions:
 jobs:
   macos:
     name: macOS
+    if: ${{ github.event.inputs.platform != 'windows' }}
     runs-on: macos-latest
     steps:
       - name: Check out repository
@@ -53,6 +66,7 @@ jobs:
 
   windows:
     name: Windows
+    if: ${{ github.event.inputs.platform != 'macos' }}
     runs-on: windows-latest
     steps:
       - name: Check out repository
@@ -66,6 +80,9 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
+      # Empty WINDOWS_CERT_PFX_BASE64 (secret not set) is an unsigned build.
+      # scripts/build-windows.ps1 records that in the job summary and still
+      # exits 0. Do not require the PFX here.
       - name: Build Windows installer
         shell: pwsh
         env:
