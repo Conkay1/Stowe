@@ -16,10 +16,15 @@ a = Analysis(
     pathex=['.'],
     binaries=[],
     datas=[
+        # Whole frontend tree, including the vendored Chart.js build and its
+        # license at frontend/vendor/chartjs/ (no CDN fetch at runtime).
         ('frontend', 'frontend'),
         ('assets',   'assets'),
     ],
     hiddenimports=[
+        # Loopback bind host. run.py imports it; listed so the frozen app
+        # keeps the module even if the import is ever made indirect.
+        'stowe_net',
         # uvicorn
         'uvicorn.logging',
         'uvicorn.loops.auto',

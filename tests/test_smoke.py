@@ -1004,6 +1004,132 @@ def test_reconciliation_amount_mismatch_leaves_both_unmatched(client):
     assert data["matched"] == []
 
 
+def _non_loopback_ipv4():
+    """An IPv4 address assigned to this machine that is not loopback, or None."""
+    import socket
+
+    candidates = []
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            # UDP connect does not send a packet; it only selects the outbound address.
+            sock.connect(("192.0.2.1", 9))
+            candidates.append(sock.getsockname()[0])
+    except OSError:
+        pass
+    try:
+        infos = socket.getaddrinfo(
+            socket.gethostname(), None, socket.AF_INET, socket.SOCK_STREAM
+        )
+    except socket.gaierror:
+        infos = []
+    candidates.extend(info[4][0] for info in infos)
+
+    seen = set()
+    for ip in candidates:
+        if not ip or ip in seen or ip.startswith("127."):
+            continue
+        seen.add(ip)
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind((ip, 0))
+        except OSError:
+            continue
+        return ip
+    return None
+
+
+def _isolate_app_db(tmp_path, monkeypatch):
+    """Point init_db at a temp database so the bind test never touches user data."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    db_path = tmp_path / "bind-host.db"
+    receipts_dir = tmp_path / "receipts"
+    receipts_dir.mkdir()
+
+    import config
+    monkeypatch.setattr(config, "DATABASE_PATH", db_path)
+    monkeypatch.setattr(config, "RECEIPTS_DIR", receipts_dir)
+    monkeypatch.setattr(config, "DATABASE_URL", f"sqlite:///{db_path}")
+
+    from backend import db as db_module
+
+    test_engine = create_engine(
+        f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
+    )
+    TestSession = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+    monkeypatch.setattr(db_module, "engine", test_engine)
+    monkeypatch.setattr(db_module, "SessionLocal", TestSession)
+    monkeypatch.setattr(db_module, "DATABASE_PATH", db_path)
+    monkeypatch.setattr(db_module, "RECEIPTS_DIR", receipts_dir)
+    return test_engine
+
+
+def test_default_bind_host_is_loopback(tmp_path, monkeypatch):
+    """Start uvicorn with main:app on BIND_HOST and a free port.
+
+    A connection to 127.0.0.1 succeeds. A connection to another local IPv4
+    address is refused. Skips if the machine has no non-loopback IPv4.
+    """
+    import socket
+    import threading
+    import time
+
+    import pytest
+    import uvicorn
+
+    from stowe_net import BIND_HOST
+
+    assert BIND_HOST == "127.0.0.1"
+
+    lan_ip = _non_loopback_ipv4()
+    if lan_ip is None:
+        pytest.skip("machine has no non-loopback IPv4 address")
+
+    engine = _isolate_app_db(tmp_path, monkeypatch)
+    config = uvicorn.Config(
+        "main:app",
+        host=BIND_HOST,
+        port=0,
+        log_level="warning",
+        access_log=False,
+        loop="asyncio",
+        timeout_graceful_shutdown=1,
+    )
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, name="stowe-bind-host", daemon=True)
+    thread.start()
+    try:
+        deadline = time.monotonic() + 10
+        while not server.started and thread.is_alive() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert server.started, "uvicorn did not start listening"
+
+        port = server.servers[0].sockets[0].getsockname()[1]
+
+        connected = False
+        connect_deadline = time.monotonic() + 5
+        last_error = None
+        while time.monotonic() < connect_deadline:
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                    connected = True
+                    break
+            except OSError as exc:
+                last_error = exc
+                time.sleep(0.05)
+        assert connected, last_error
+
+        with pytest.raises(ConnectionRefusedError):
+            socket.create_connection((lan_ip, port), timeout=2)
+    finally:
+        server.should_exit = True
+        server.force_exit = True
+        thread.join(timeout=5)
+        engine.dispose()
+        assert not thread.is_alive(), "uvicorn thread did not shut down"
+
+
 def test_reconciliation_manual_match_and_unmatch(client):
     """POST /distributions/{id}/match links a distribution to a pull;
     DELETE /distributions/{id}/match reverses it."""

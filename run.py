@@ -27,30 +27,24 @@ if not FROZEN and sys.version_info < (3, 10):
             break
 
 
+# No authentication on the API. Loopback only — do not bind a public or LAN interface.
+from stowe_net import BIND_HOST
+
+
 def find_free_port(start=8000, end=8020) -> int:
     import socket
     for port in range(start, end):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
-                s.bind(("0.0.0.0", port))
+                s.bind((BIND_HOST, port))
                 return port
             except OSError:
                 continue
     return start
 
 
-def get_local_ip() -> str:
-    import socket
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            return s.getsockname()[0]
-    except Exception:
-        return "unknown"
-
-
 PORT = find_free_port()
-URL = f"http://localhost:{PORT}"
+URL = f"http://{BIND_HOST}:{PORT}"
 
 
 def check_python():
@@ -92,7 +86,7 @@ def _start_uvicorn():
     from main import app
     uvicorn.run(
         app,
-        host="0.0.0.0",
+        host=BIND_HOST,
         port=PORT,
         log_level="warning",
     )
@@ -144,9 +138,8 @@ def launch_browser():
     srv = threading.Thread(target=_start_uvicorn, daemon=True)
     srv.start()
 
-    local_ip = get_local_ip()
     print(f"\nStowe running at {URL}")
-    print(f"  On your phone (same WiFi): http://{local_ip}:{PORT}")
+    print("Listening on 127.0.0.1 only.")
     print("Press Ctrl+C to stop.\n")
 
     def _open():

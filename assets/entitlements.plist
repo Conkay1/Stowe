@@ -18,11 +18,19 @@
     <key>com.apple.security.cs.disable-library-validation</key>
     <true/>
 
-    <!-- uvicorn binds 0.0.0.0 on a port in 8000-8020 (run.py). -->
+    <!-- App Sandbox entitlement. uvicorn binds 127.0.0.1 only, on a free
+         port in 8000-8020 (run.py). Has no effect without
+         com.apple.security.app-sandbox, which is not set. Kept until a
+         signed notarized build is verified without it. The three
+         com.apple.security.cs.* keys above are hardened-runtime exceptions
+         PyInstaller needs; these network keys are not. -->
     <key>com.apple.security.network.server</key>
     <true/>
 
-    <!-- Raw socket.socket() calls for port detection and LAN-IP lookup. -->
+    <!-- App Sandbox entitlement, same as network.server: no effect without
+         app-sandbox, and kept until a signed notarized build is verified
+         without it. Sockets stay on loopback (free-port probe and the
+         readiness check to 127.0.0.1). There is no LAN or public-IP lookup. -->
     <key>com.apple.security.network.client</key>
     <true/>
 </dict>

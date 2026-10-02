@@ -1,8 +1,16 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from config import DATABASE_PATH, DATABASE_URL, RECEIPTS_DIR
+from config import (
+    DATA_DIR,
+    DATABASE_PATH,
+    DATABASE_URL,
+    RECEIPTS_DIR,
+    ensure_private_dir,
+    restrict_private_file,
+)
 
-DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+ensure_private_dir(DATA_DIR)
+ensure_private_dir(DATABASE_PATH.parent)
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -134,8 +142,9 @@ def _bootstrap_categories(bind):
 
 def init_db():
     from backend.models import Base
-    RECEIPTS_DIR.mkdir(exist_ok=True)
+    ensure_private_dir(RECEIPTS_DIR)
     Base.metadata.create_all(bind=engine)
+    restrict_private_file(DATABASE_PATH)
     _migrate(engine)
     _bootstrap_categories(engine)
     _bootstrap_line_items(engine)

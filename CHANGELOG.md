@@ -4,6 +4,12 @@ All notable changes to Stowe are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-09-30
+
+### Changed
+- **Localhost only.** The app binds to `127.0.0.1` on every launch path. Other devices on the local network cannot reach it, and startup no longer probes `8.8.8.8` to discover a LAN address.
+- **Chart.js 4.5.1 is vendored.** The spending chart loads the library from the app (`frontend/vendor/chartjs/`) instead of a CDN.
+
 ## [0.7.0] — 2026-06-22
 
 ### Added
@@ -84,6 +90,7 @@ All notable changes to Stowe are documented here. The format is based on
 
 Initial release.
 
+[0.8.0]: https://github.com/Conkay1/Stowe/releases/tag/v0.8.0
 [0.7.0]: https://github.com/Conkay1/Stowe/releases/tag/v0.7.0
 [0.6.0]: https://github.com/Conkay1/Stowe/releases/tag/v0.6.0
 [0.5.0]: https://github.com/Conkay1/Stowe/releases/tag/v0.5.0

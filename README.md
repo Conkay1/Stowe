@@ -6,7 +6,7 @@
 
 Stowe is a small desktop app for people who pay medical bills out-of-pocket with an HSA and want to defer reimbursement until later — possibly years later. The IRS lets you do this, but only if you can still produce the receipts when you pull the money out. That's what Stowe keeps track of.
 
-Your data lives on your computer. Nothing is sent to a server. No Stowe account. No cloud. No telemetry.
+Your data lives on your computer. Nothing you store is sent to a server. The app listens on localhost (127.0.0.1) only, and interface assets, including the chart library, are bundled with it. No Stowe account. No cloud. No telemetry.
 
 ---
 
@@ -31,25 +31,18 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 - **Custodian CSV import** — import distribution history from your HSA custodian and reconcile it against the Pulls you've recorded
 - **CSV export** — per-year or all-time, for your tax records or a spreadsheet
 - Light, dark, and sepia themes — switchable in Settings
-- Responsive on mobile when accessed over your local network
 
 ---
 
 ## Install
 
-### macOS (recommended)
+Stowe is currently available for macOS. You can also run it from source.
 
-1. Download `Stowe-0.7.0.dmg` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
+### macOS
+
+1. Download [`Stowe-0.8.0.dmg`](https://github.com/Conkay1/Stowe/releases/download/v0.8.0/Stowe-0.8.0.dmg).
 2. Open the DMG and drag **Stowe** into **Applications**.
 3. Open **Stowe** from Applications. The build is signed with a Developer ID and notarized by Apple, so it launches normally — no Gatekeeper bypass needed.
-
-### Windows
-
-1. Download `Stowe-0.7.0-windows-setup.exe` from the latest [Release](https://github.com/Conkay1/Stowe/releases).
-2. Run the installer and follow the prompts. No administrator rights are required — Stowe installs to `%LOCALAPPDATA%\Programs\Stowe\`.
-3. A Start Menu entry and an optional Desktop shortcut are created automatically.
-4. **Prerequisite:** Microsoft Edge WebView2 Runtime. It ships pre-installed with Windows 10 (version 1803 or later) and Windows 11. If needed, download it from [microsoft.com/edge/webview2](https://developer.microsoft.com/microsoft-edge/webview2/).
-5. Data lives at `%APPDATA%\Stowe\` (database + receipts). To back up, copy that folder.
 
 ### From source
 
@@ -61,11 +54,13 @@ cd Stowe
 python3 run.py
 ```
 
-`run.py` installs dependencies, creates the database on first run, finds a free port, and opens the app in your browser. Press `Ctrl+C` to stop.
+`run.py` installs dependencies from PyPI when needed, creates the database on first run, finds a free port, and opens the app in your browser at `http://127.0.0.1`. Press `Ctrl+C` to stop. That pip step is the only network call on the from-source launch path. The server itself stays on loopback.
 
-### Access from your phone on the same WiFi
+### Localhost only
 
-`run.py` prints a LAN URL on startup (e.g. `http://192.168.1.42:8000`). Open that on your phone's browser to snap receipts with your camera. On iOS, tap the Share button and "Add to Home Screen" to install it as a PWA.
+Stowe listens on `127.0.0.1` only. Other devices on your network, including a phone on the same Wi-Fi, cannot open the app or its export API.
+
+Versions before 0.8.0 accepted connections from other devices on the local network and loaded the chart library from a CDN. Update to 0.8.0.
 
 ---
 
@@ -74,6 +69,9 @@ python3 run.py
 **Packaged app (macOS):**
 - Database: `~/Library/Application Support/Stowe/database/stowe.db`
 - Receipts: `~/Library/Application Support/Stowe/receipts/`
+
+**Packaged app (Windows):**
+- Data lives at `%LOCALAPPDATA%\Stowe\` (database + receipts). To back up, copy that folder.
 
 **From source:**
 - Database: `./database/stowe.db` (inside the project folder)
