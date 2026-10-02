@@ -50,8 +50,11 @@ ORIG_DEFAULT_KEYCHAIN=""
 ORIG_KEYCHAINS=()
 NOTARY_ARGS=()
 NOTARY_KEY_PATH=""
+# Set once the notarization zip path is known. The EXIT trap removes it even
+# when a later step (Gatekeeper assessment, for example) fails.
+ZIP=""
 
-cleanup_signing_material() {
+cleanup_on_exit() {
     if [[ "${CI_KEYCHAIN_CREATED}" -eq 1 ]]; then
         if [[ -n "${ORIG_DEFAULT_KEYCHAIN}" ]]; then
             security default-keychain -s "${ORIG_DEFAULT_KEYCHAIN}" >/dev/null 2>&1 || true
@@ -66,8 +69,12 @@ cleanup_signing_material() {
     if [[ -n "${SIGN_TMP}" && -d "${SIGN_TMP}" ]]; then
         rm -rf "${SIGN_TMP}"
     fi
+    # The zip exists only to upload the .app for notarization.
+    if [[ -n "${ZIP}" ]]; then
+        rm -f "${ZIP}" || true
+    fi
 }
-trap cleanup_signing_material EXIT
+trap cleanup_on_exit EXIT
 
 ensure_sign_tmp() {
     if [[ -z "${SIGN_TMP}" ]]; then
@@ -355,11 +362,11 @@ if [[ "${SIGNING}" -eq 1 ]]; then
     xcrun stapler staple "$DMG"
 
     echo "==> Gatekeeper assessment"
-    spctl --assess --type execute -vvv "$APP"
-    spctl --assess --type open --context context:primary-signature -vvv "$DMG"
-
-    # Tidy: the zip was only for notarization.
-    rm -f "$ZIP"
+    # spctl lives in /usr/sbin, which is not on PATH for a daemon launchd job.
+    # codesign, ditto, hdiutil, security, and xcrun are in /usr/bin (stapler is
+    # reached through xcrun), so those bare names still resolve.
+    /usr/sbin/spctl --assess --type execute -vvv "$APP"
+    /usr/sbin/spctl --assess --type open --context context:primary-signature -vvv "$DMG"
 fi
 
 echo
