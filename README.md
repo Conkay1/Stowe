@@ -37,7 +37,7 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 
 ## Install
 
-Stowe 0.8.0 is the macOS release. The current Windows installer is 0.6.0; 0.8.0 for Windows is coming soon. You can also run it from source.
+Stowe 0.8.0 is available for macOS and Windows. You can also run it from source.
 
 ### macOS
 
@@ -45,15 +45,19 @@ Stowe 0.8.0 is the macOS release. The current Windows installer is 0.6.0; 0.8.0 
 2. Open the DMG and drag **Stowe** into **Applications**.
 3. Open **Stowe** from Applications. The build is signed with a Developer ID and notarized by Apple, so it launches normally — no Gatekeeper bypass needed.
 
-### Windows (0.6.0)
+### Windows
 
-The current Windows installer is 0.6.0. A Windows build of 0.8.0 is coming soon.
-
-1. Download [`Stowe-0.6.0-windows-setup.exe`](https://github.com/Conkay1/Stowe/releases/download/v0.6.0/Stowe-0.6.0-windows-setup.exe) from the v0.6.0 release.
+1. Download [`Stowe-0.8.0-windows-setup.exe`](https://github.com/Conkay1/Stowe/releases/download/v0.8.0/Stowe-0.8.0-windows-setup.exe).
 2. Run the installer and follow the prompts. No administrator rights are required — Stowe installs to `%LOCALAPPDATA%\Programs\Stowe\`.
 3. A Start Menu entry and an optional Desktop shortcut are created automatically.
 4. **Prerequisite:** Microsoft Edge WebView2 Runtime. It ships pre-installed with Windows 10 (version 1803 or later) and Windows 11. If needed, download it from [microsoft.com/edge/webview2](https://developer.microsoft.com/microsoft-edge/webview2/).
-5. In this 0.6.0 build, data lives at `%APPDATA%\Stowe\` (database + receipts). To back up, copy that folder.
+5. Your data lives at `%LOCALAPPDATA%\Stowe\` (database + receipts). On first launch, an existing `%APPDATA%\Stowe\` folder is moved there automatically. To back up, copy `%LOCALAPPDATA%\Stowe\`.
+
+<!-- unsigned-windows: delete this note when the installer is code-signed -->
+
+The installer isn't code-signed yet, so Windows may say **Windows protected your PC**. Click **More info**, then **Run anyway**. To confirm the file, its SHA-256 is `41ab676291edc32e3b7260b90996a31f60113b8d57ee18ff0c9e3bf406aed3b0`.
+
+<!-- /unsigned-windows -->
 
 ### From source
 
@@ -71,7 +75,7 @@ python3 run.py
 
 Stowe listens on `127.0.0.1` only. Other devices on your network, including a phone on the same Wi-Fi, cannot open the app or its export API.
 
-Versions before 0.8.0 accepted connections from other devices on the local network and loaded the chart library from a CDN. On macOS, update to 0.8.0. A Windows build of 0.8.0 is coming soon; the current Windows installer is 0.6.0.
+Versions before 0.8.0 accepted connections from other devices on the local network and loaded the chart library from a CDN. Update to 0.8.0 on macOS and Windows.
 
 ---
 
@@ -81,8 +85,8 @@ Versions before 0.8.0 accepted connections from other devices on the local netwo
 - Database: `~/Library/Application Support/Stowe/database/stowe.db`
 - Receipts: `~/Library/Application Support/Stowe/receipts/`
 
-**Packaged app (Windows 0.6.0):**
-- Data lives at `%APPDATA%\Stowe\` (database + receipts). To back up, copy that folder.
+**Packaged app (Windows):**
+- Database and receipts live at `%LOCALAPPDATA%\Stowe\`. On first launch, an existing `%APPDATA%\Stowe\` folder is moved there automatically.
 
 **From source:**
 - Database: `./database/stowe.db` (inside the project folder)

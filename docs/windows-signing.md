@@ -1,9 +1,11 @@
 # Signing the Windows build
 
 `scripts/build-windows.ps1` produces `Stowe-<version>-windows-setup.exe`.
-Signing is optional. If `WINDOWS_CERT_PFX_BASE64` and
-`WINDOWS_CERT_PASSWORD` are both unset, the script says the build will be
-unsigned and leaves `dist\Stowe\Stowe.exe` and the setup exe unsigned.
+Signing is optional. If `WINDOWS_CERT_PFX_BASE64` is unset or blank, the
+script skips Authenticode, says the build will be unsigned, and leaves
+`dist\Stowe\Stowe.exe` and the setup exe unsigned. A password without
+that certificate is ignored. On GitHub Actions the job summary is labeled
+**Windows installer: unsigned**, with the filename, size, and SHA-256.
 
 The macOS flow is documented in [macos-signing.md](macos-signing.md).
 
@@ -34,8 +36,9 @@ deleted when the script exits, including when the build fails.
 
 [`.github/workflows/release-build.yml`](../.github/workflows/release-build.yml)
 maps these repository secrets into the Windows job. The workflow is
-`workflow_dispatch` only and uploads the setup exe as an artifact. It does
-not publish a GitHub Release.
+`workflow_dispatch` only. Its `platform` input is `both` (the default),
+`windows`, or `macos`. The Windows job uploads the setup exe as the
+`stowe-windows` artifact. The workflow does not publish a GitHub Release.
 
 Add the secrets under **Settings → Secrets and variables → Actions**. Do
 not commit them.
@@ -46,8 +49,12 @@ not commit them.
 | `WINDOWS_CERT_PASSWORD` | Yes | Password for that `.pfx`. |
 | `WINDOWS_TIMESTAMP_URL` | No | RFC3161 timestamp server. Default `http://timestamp.digicert.com` when unset or empty. |
 
-Both certificate secrets must be set together. Setting only one is an
-error. Setting neither produces an unsigned installer.
+`WINDOWS_CERT_PFX_BASE64` decides whether the build is signed. When it is
+absent the installer is unsigned and the Windows job succeeds, including
+when `WINDOWS_CERT_PASSWORD` is set on its own. Setting the PFX without
+the password fails the build, so a half-configured certificate is not
+shipped as a quietly unsigned installer. The macOS job does not use these
+secrets.
 
 Encode the `.pfx` without writing it into the repo:
 

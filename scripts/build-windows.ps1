@@ -10,8 +10,10 @@
 #
 # Output: Stowe-<version>-windows-setup.exe in the repo root.
 #
-# Optional Authenticode signing (see docs/windows-signing.md). Leave both
-# certificate variables unset for an unsigned build:
+# Optional Authenticode signing (see docs/windows-signing.md).
+# WINDOWS_CERT_PFX_BASE64 absent or blank → unsigned build, exit 0.
+# A password without that certificate is ignored. A certificate without
+# a password is an error (signing was requested but cannot run).
 #   WINDOWS_CERT_PFX_BASE64   Base64-encoded code-signing .pfx
 #   WINDOWS_CERT_PASSWORD     Password for that .pfx
 #   WINDOWS_TIMESTAMP_URL     RFC3161 timestamp URL
@@ -56,6 +58,17 @@ function Find-SignTool {
     return $null
 }
 
+function Add-StoweJobSummary {
+    param([Parameter(Mandatory = $true)][string]$Markdown)
+    if ([string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+        return
+    }
+    if (-not $Markdown.EndsWith("`n")) {
+        $Markdown += "`n"
+    }
+    [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, $Markdown)
+}
+
 function Import-StoweSigningPfx {
     if ($script:StowePfxPath) {
         return
@@ -94,24 +107,34 @@ try {
 $ROOT = Split-Path -Parent $PSScriptRoot
 Set-Location $ROOT
 
-# Fail before the long build if signing was only half-configured.
+# WINDOWS_CERT_PFX_BASE64 is the switch. Absent or blank means unsigned,
+# even when WINDOWS_CERT_PASSWORD is set (GitHub leaves unused secrets
+# empty, and a leftover password must not fail the unsigned build).
+# A PFX without a password still fails: signing was requested.
 $hasPfx = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERT_PFX_BASE64)
 $hasPfxPassword = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERT_PASSWORD)
-if ($hasPfx -xor $hasPfxPassword) {
-    Write-Error "WINDOWS_CERT_PFX_BASE64 and WINDOWS_CERT_PASSWORD must both be set to sign, or both left unset for an unsigned build."
-    exit 1
-}
-$signing = $hasPfx
+$signing = $false
 $signTool = $null
-if ($signing) {
+if (-not $hasPfx) {
+    Write-Host "==> No Windows certificate configured — build will be unsigned"
+    $summary = "### Windows installer: unsigned`n`nAuthenticode signing was skipped because ``WINDOWS_CERT_PFX_BASE64`` is not set. The setup executable uploaded by this job is unsigned."
+    if ($hasPfxPassword) {
+        Write-Host "WARNING: WINDOWS_CERT_PASSWORD is set, but WINDOWS_CERT_PFX_BASE64 is absent. Signing is skipped."
+        $summary += "`n`n``WINDOWS_CERT_PASSWORD`` is set and was ignored."
+    }
+    Add-StoweJobSummary -Markdown $summary
+} elseif (-not $hasPfxPassword) {
+    Add-StoweJobSummary -Markdown "### Windows installer: signing failed`n`n``WINDOWS_CERT_PFX_BASE64`` is set but ``WINDOWS_CERT_PASSWORD`` is empty. Set both to sign, or leave the certificate unset for an unsigned build."
+    Write-Error "WINDOWS_CERT_PFX_BASE64 is set but WINDOWS_CERT_PASSWORD is empty. Set both to sign, or leave the certificate unset for an unsigned build."
+    exit 1
+} else {
     $signTool = Find-SignTool
     if (-not $signTool) {
         Write-Error "signtool.exe not found. Install the Windows SDK (Windows Kits\10\bin\<version>\x64\signtool.exe)."
         exit 1
     }
+    $signing = $true
     Write-Host "==> Code signing enabled (Authenticode)"
-} else {
-    Write-Host "==> No Windows certificate configured — build will be unsigned"
 }
 
 # ── Version from stowe.iss ────────────────────────────────────────────────────
@@ -198,8 +221,15 @@ if ($signing) {
     Invoke-StoweAuthenticodeSign -SignTool $signTool -Target $installer
 }
 
+$item = Get-Item $installer
+$hash = (Get-FileHash -Algorithm SHA256 -Path $installer).Hash.ToLowerInvariant()
 Write-Host ""
-Write-Host "Done: $installer  ($([math]::Round((Get-Item $installer).Length / 1MB, 1)) MB)"
+Write-Host "Done: $installer  ($([math]::Round($item.Length / 1MB, 1)) MB)"
+Write-Host "Bytes: $($item.Length)"
+Write-Host "SHA256: $hash"
+if (-not $signing) {
+    Add-StoweJobSummary -Markdown ("`n- File: ``$installer```n- Bytes: $($item.Length)`n- SHA-256: ``$hash```n")
+}
 } finally {
     if ($script:StowePfxPath -and (Test-Path -LiteralPath $script:StowePfxPath)) {
         Remove-Item -LiteralPath $script:StowePfxPath -Force
