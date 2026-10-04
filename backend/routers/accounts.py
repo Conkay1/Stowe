@@ -297,7 +297,10 @@ async def parse_csv_import(
         delimiter = ","
 
     reader = csv.reader(io.StringIO(text), delimiter=delimiter)
-    rows = list(reader)
+    try:
+        rows = list(reader)
+    except csv.Error as exc:
+        raise HTTPException(400, f"Could not parse CSV: {exc}") from exc
     # Never persist `text` or `raw` past this scope — we do not write CSV to disk.
 
     if not rows:
