@@ -3,7 +3,6 @@ import io
 import json
 import logging
 import os
-import re
 import tempfile
 import uuid
 import zipfile
@@ -41,10 +40,6 @@ ALLOWED_RECEIPT_MIMES = {
     "application/pdf",
 }
 ALLOWED_RECEIPT_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".pdf"}
-
-
-def _sanitize_filename(name: str) -> str:
-    return re.sub(r"[^\w.\-]", "_", Path(name).name)[:200]
 
 
 def _coverage_map(db: Session, expense_ids: list[int]) -> dict[int, tuple[float, int]]:
@@ -107,8 +102,7 @@ def _read_validated_upload(file: UploadFile, content: bytes) -> tuple[bytes, str
     persisting upload endpoint and the ephemeral analyze endpoint.
     """
     original = file.filename or "receipt"
-    safe_name = _sanitize_filename(original)
-    ext = Path(safe_name).suffix.lower()
+    ext = Path(original).suffix.lower()
     if ext not in ALLOWED_RECEIPT_EXTS:
         raise HTTPException(400, f"Unsupported file type. Allowed: {', '.join(sorted(ALLOWED_RECEIPT_EXTS))}")
     if file.content_type and file.content_type not in ALLOWED_RECEIPT_MIMES:
