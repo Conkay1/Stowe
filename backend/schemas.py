@@ -100,6 +100,7 @@ class ExpenseOut(BaseModel):
     pull_count: int = 0             # how many distinct pulls back this expense
     overcovered_amount: float = 0.0
     reconciliation_required: bool = False
+    correction_count: int = 0
     auto_review_status: str = "not_analyzed"
     auto_review_notes: Optional[str] = None
     auto_review: Optional[ReceiptAnalysisOut] = None   # parsed auto_review_metadata
@@ -232,6 +233,7 @@ class PullLineItemOut(BaseModel):
     date: DateType
     category: str
     receipt_count: int
+    overcovered_amount: float = 0.0
 
 
 class ReimbursementListItem(BaseModel):
@@ -243,6 +245,8 @@ class ReimbursementListItem(BaseModel):
     total_amount: float
     allocated_amount: float = 0.0
     allocation_difference: float = 0.0
+    amount_difference: Optional[float] = None
+    reconciliation_required: bool = False
     account_id: Optional[int] = None
     account_name: Optional[str] = None
     created_at: datetime
@@ -254,6 +258,7 @@ class ReimbursementOut(ReimbursementListItem):
     line_items: list[PullLineItemOut] = []
     # Matched custodian distribution if reconciled. Forward ref — DistributionOut defined below.
     distribution: Optional["DistributionOut"] = None
+    has_corrections: bool = False
 
 
 # ── HSA Accounts ─────────────────────────────────────────────────────────────
@@ -408,6 +413,11 @@ class CSVCommitResult(BaseModel):
 # ── Reconciliation ───────────────────────────────────────────────────────────
 
 
+class ExpenseCoverageIssue(BaseModel):
+    expense_id: int
+    overcovered_amount: float
+
+
 class ReconcMatchedItem(BaseModel):
     distribution: DistributionOut
     pull_id: int
@@ -417,6 +427,7 @@ class ReconcMatchedItem(BaseModel):
     amount_difference: float = 0.0
     allocation_difference: float = 0.0
     overcovered_expense_ids: list[int] = []
+    overcovered_expenses: list[ExpenseCoverageIssue] = []
     reconciliation_required: bool = False
 
 

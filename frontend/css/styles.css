@@ -1,5 +1,18 @@
 /* ── Reset & Base ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+.correction-box { background: var(--surface2); border-radius: var(--radius); padding: 16px; margin: 16px 0; line-height: 1.5; }
+.correction-box p, .correction-box h3 { margin: 8px 0; }
+.correction-warning { background: var(--badge-unreimb-bg); border: 1px solid var(--yellow); }
+.correction-warning strong, .correction-warning h3, .correction-excess { color: var(--yellow); }
+.correction-totals { display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; margin: 12px 0; }
+.correction-totals dd { text-align: right; font-variant-numeric: tabular-nums; }
+.correction-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.correction-help, .correction-error { margin: 14px 0; font-size: 13px; line-height: 1.5; }
+.correction-error { color: var(--red); }
+.correction-excess { display: block; font-size: 20px; margin: 12px 0; }
+.correction-history { margin: 16px 0; }
+.correction-history summary { cursor: pointer; font-weight: 600; }
+.correction-reason { white-space: pre-wrap; overflow-wrap: anywhere; }
 html, body { overflow-x: hidden; }
 
 :root {

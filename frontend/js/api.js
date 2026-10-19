@@ -1,7 +1,7 @@
 const BASE = "/api/v1";
 
 async function req(method, path, body, isForm = false) {
-  const opts = { method, headers: {} };
+  const opts = { method, headers: {}, cache: "no-store" };
   if (body) {
     if (isForm) {
       opts.body = body;
@@ -13,7 +13,10 @@ async function req(method, path, body, isForm = false) {
   const res = await fetch(BASE + path, opts);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || res.statusText);
+    const detail = Array.isArray(err.detail) ? err.detail.map(item => item.msg).join("; ") : err.detail;
+    const error = new Error(detail || res.statusText);
+    error.status = res.status;
+    throw error;
   }
   if (res.status === 204) return null;
   return res.json();
@@ -43,6 +46,9 @@ export const api = {
     remove:        (id)           => del(`/expenses/${id}`),
     uploadReceipt: (id, formData) => post(`/expenses/${id}/receipts`, formData, true),
     analyze:       (id)           => post(`/expenses/${id}/analyze`, {}),
+    corrections:   (id)           => get(`/expenses/${id}/corrections`),
+    previewCorrection: (id, body)  => post(`/expenses/${id}/corrections/preview`, body),
+    correct:       (id, body)     => post(`/expenses/${id}/corrections`, body),
   },
   receipts: {
     remove:  (id) => del(`/receipts/${id}`),
