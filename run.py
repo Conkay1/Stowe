@@ -13,6 +13,11 @@ import time
 import threading
 from pathlib import Path
 
+if __name__ == "__main__" and sys.argv[1:2] == ["--stowe-ocr-worker"]:
+    from backend.ocr import worker_main
+    sys.exit(worker_main(sys.argv[2:]))
+
+
 BASE = Path(__file__).parent
 FROZEN = getattr(sys, "frozen", False)
 

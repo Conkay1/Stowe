@@ -22,6 +22,7 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 
 - Log expenses with merchant, date, amount, category, and notes
 - Attach one or more receipts per expense (JPG, PNG, WebP, HEIC, PDF — 10 MB each)
+- Save receipts before optional local analysis. OCR runs in at most two child processes, each with a 10-second execution limit and up to 10 seconds waiting for a slot. Failed or timed-out extraction leaves the original receipt intact; use Re-analyze to retry. Refresh the expense to see completed background analysis.
 - Mark expenses reimbursed when you pull the money out; the reimbursement date is recorded automatically
 - **Vault Balance** — running total of unreimbursed, receipt-backed expenses you could claim today
 - **Annual Ledger** — year-by-year breakdown with receipt-coverage percentage

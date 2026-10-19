@@ -11,12 +11,12 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
-from sqlalchemy import func
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.orm import Session
 
-from backend import corrections, ocr
+from backend import corrections, db as db_module, ocr
 from backend.db import begin_financial_write, get_db
 from backend.eligibility import analyze_text
 from backend.models import HSAExpense, Receipt, ReimbursementLineItem
@@ -126,10 +126,14 @@ def _review_expense(db: Session, expense: HSAExpense) -> None:
     so a flaky analysis never breaks the request that triggered it.
     """
     try:
+        expense_id = expense.id
+        receipts = [(r.id, r.filename) for r in expense.receipts]
+        previous_metadata = expense.auto_review_metadata
+        db.rollback()
         texts: list[str] = []
         method = "none"
-        for r in expense.receipts:
-            f = RECEIPTS_DIR / r.filename
+        for _receipt_id, filename in receipts:
+            f = RECEIPTS_DIR / filename
             if not f.exists():
                 continue
             text, m = ocr.extract_text(f)
@@ -139,15 +143,36 @@ def _review_expense(db: Session, expense: HSAExpense) -> None:
                 method = m
         result = analyze_text("\n\n".join(texts))   # handles "" → not_analyzed
         result["method"] = method
-        expense.auto_review_status = result["status"]
-        expense.auto_review_notes = result["notes"]
-        expense.auto_review_metadata = json.dumps(result)
+        receipt_count = select(func.count(Receipt.id)).where(
+            Receipt.expense_id == expense_id,
+        ).scalar_subquery()
+        matching_count = select(func.count(Receipt.id)).where(
+            Receipt.expense_id == expense_id, tuple_(Receipt.id, Receipt.filename).in_(receipts),
+        ).scalar_subquery()
+        db.query(HSAExpense).filter(
+            HSAExpense.id == expense_id,
+            HSAExpense.auto_review_metadata == previous_metadata,
+            receipt_count == len(receipts), matching_count == len(receipts),
+        ).update({
+            HSAExpense.auto_review_status: result["status"],
+            HSAExpense.auto_review_notes: result["notes"],
+            HSAExpense.auto_review_metadata: json.dumps(result),
+        }, synchronize_session=False)
         db.commit()
     except Exception:
         logger.exception("auto-review failed for expense %s", getattr(expense, "id", "?"))
         db.rollback()
 
 
+
+def _review_expense_after_upload(expense_id: int) -> None:
+    try:
+        with db_module.SessionLocal() as db:
+            expense = db.get(HSAExpense, expense_id)
+            if expense is not None:
+                _review_expense(db, expense)
+    except Exception:
+        logger.exception("background auto-review failed for expense %s", expense_id)
 
 
 # ── Expenses ──────────────────────────────────────────────────────────────────
@@ -253,6 +278,7 @@ def delete_expense(expense_id: int, db: Session = Depends(get_db)):
 @router.post("/expenses/{expense_id}/receipts", response_model=ReceiptOut, status_code=201)
 async def upload_receipt(
     expense_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -276,26 +302,20 @@ async def upload_receipt(
     db.add(receipt)
     db.commit()
 
-    # Re-run the auto-review now the new receipt is on disk. Best-effort — never
-    # blocks the 201. refresh(expense) so its .receipts includes the new file.
-    db.refresh(expense)
-    _review_expense(db, expense)
-
-    # _review_expense commits, expiring `receipt`; refresh so the response
-    # serializes a fresh, attached instance.
     db.refresh(receipt)
+    background_tasks.add_task(_review_expense_after_upload, expense_id)
     return receipt
 
 
 @router.post("/receipts/analyze", response_model=ReceiptAnalysisOut)
-async def analyze_receipt(file: UploadFile = File(...)):
+def analyze_receipt(file: UploadFile = File(...)):
     """OCR + classify an uploaded file WITHOUT persisting anything.
 
     Used by the Add-expense page to pre-fill the form before the expense is saved.
     The bytes are written to a private OS temp file (local, cleaned up immediately)
     because both pypdf and Vision need a real filesystem path.
     """
-    content, ext, _original = _read_validated_upload(file, await file.read())
+    content, ext, _original = _read_validated_upload(file, file.file.read())
 
     tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
     try:
