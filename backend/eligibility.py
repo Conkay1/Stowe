@@ -108,6 +108,25 @@ _ELIGIBLE = _compile(ELIGIBLE_KEYWORDS)
 _INELIGIBLE = _compile(INELIGIBLE_KEYWORDS)
 _MERCHANT = _compile(MEDICAL_MERCHANT_KEYWORDS)
 
+_HISTORY_STATUS = (
+    r"(?:never(?:[ \t]+(?:smoker|used))?|no|none|former(?:[ \t]+smoker)?|"
+    r"current(?:[ \t]+smoker)?|not[ \t]+(?:currently|on[ \t]+file))"
+)
+_HISTORY_FIELD = (
+    r"(?:tobacco[ \t]+(?:use|status)|smokeless[ \t]+tobacco|"
+    r"smoking[ \t]+status|alcohol[ \t]+use)"
+)
+_CLINICAL_HISTORY_RE = re.compile(
+    r"^[ \t]*(?:tobacco[ \t]+use[ \t]*:?[ \t]*\r?\n[ \t]*)?"
+    + _HISTORY_FIELD + r"[ \t]*:?[ \t]*(?:\r?\n[ \t]*)?"
+    + _HISTORY_STATUS + r"[ \t]*\.?[ \t]*$"
+    r"|^[ \t]*(?:denies|no)[ \t]+(?:tobacco|alcohol)[ \t]+use[ \t]*\.?[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_TOBACCO_NONUSER_RE = re.compile(
+    r"(?<!\w)(?:current\s+)?tobacco\s+non[-\s]?user(?!\w)", re.IGNORECASE,
+)
+
 
 def _find_matches(text: str, compiled: list[tuple[str, "re.Pattern[str]"]]) -> list[str]:
     return sorted({kw for kw, pat in compiled if pat.search(text)})
@@ -118,33 +137,72 @@ def _find_matches(text: str, compiled: list[tuple[str, "re.Pattern[str]"]]) -> l
 # Matches $1,234.56 / 1234.56 / 12.00 — requires 2 decimals so it doesn't grab
 # quantities, ZIP codes, or phone numbers.
 _AMOUNT_RE = re.compile(r"\$?\s*(\d{1,3}(?:,\d{3})+\.\d{2}|\d+\.\d{2})")
-_GRAND_TOTAL_HINTS = ("grand total", "total due", "amount due", "balance due", "total:")
-_TOTAL_HINTS = ("total", "balance")
-_DEMOTE_HINTS = ("subtotal", "sub total", "tax", "change", "tendered", "cash", "tip")
+_PAYMENT_LABEL = (
+    r"(?:total\s+amount\s+paid|amount\s+paid|total\s+paid|"
+    r"payment\s+(?:amount|received|total)|paid\s+today|you\s+paid|patient\s+paid|payment|paid)"
+)
+_AMOUNT_LABELS = [
+    re.compile(r"(?<!\w)" + label + r"(?!\w)\s*:?\s*" + _AMOUNT_RE.pattern, re.IGNORECASE)
+    for label in (_PAYMENT_LABEL, r"grand\s+total", r"total(?:\s+amount|\s+cost)?")
+]
+_EXCLUDED_AMOUNT_CONTEXT = re.compile(
+    r"\b(?:insurance|insurer|plan\s+paid|previous|prior|unpaid(?!\s+balance\b)|"
+    r"pending|scheduled|reversed|declined|failed|"
+    r"cancelled|canceled|refund(?:ed|s)?|not\s+paid)\b|(?:-|\()\s*" + _AMOUNT_RE.pattern,
+    re.IGNORECASE,
+)
+_BALANCE_CONTEXT = re.compile(
+    r"\b(?:balance|due|owing|outstanding|unpaid|"
+    r"(?:patient|your)\s+responsibility)\b", re.IGNORECASE,
+)
+_NON_TOTAL_CONTEXT = re.compile(
+    r"\b(?:subtotal|sub\s+total|tax|change|tendered|cash|tip)\b", re.IGNORECASE,
+)
+_PAYMENT_CONTEXT = re.compile(r"(?<!\w)" + _PAYMENT_LABEL + r"(?!\w)", re.IGNORECASE)
+_UNSETTLED_STATUS = re.compile(
+    r"\s*(?:(?:payment\s+)?status\s*:\s*)?"
+    r"(?:unpaid|pending|scheduled|reversed|declined|failed|cancelled|canceled)\s*",
+    re.IGNORECASE,
+)
 
 
 def _extract_amount(text: str) -> Optional[float]:
-    """Pick the most total-like currency amount. Higher-priority lines win;
-    within a tier the larger value wins (a grand total >= line items)."""
-    best: Optional[tuple[int, float]] = None
-    for raw_line in text.splitlines():
-        line = raw_line.lower()
-        amounts = [float(m.replace(",", "")) for m in _AMOUNT_RE.findall(raw_line)]
-        if not amounts:
+    """Prefer a labeled payment or total; leave conflicting amounts unset."""
+    candidates: list[set[float]] = [set() for _ in range(4)]
+    allow_totals = True
+    lines = iter(text.splitlines())
+    pending = next(lines, None)
+    while pending is not None:
+        line = pending
+        pending = next(lines, None)
+        if pending is not None and not _AMOUNT_RE.search(line) and _AMOUNT_RE.fullmatch(pending.strip()):
+            line += " " + pending
+            pending = next(lines, None)
+        if _UNSETTLED_STATUS.fullmatch(line):
+            return None
+        if _EXCLUDED_AMOUNT_CONTEXT.search(line):
+            allow_totals = False
             continue
-        val = max(amounts)
-        is_grand = any(h in line for h in _GRAND_TOTAL_HINTS)
-        if is_grand:
-            prio = 3
-        elif any(h in line for h in _DEMOTE_HINTS):
-            prio = 0
-        elif any(h in line for h in _TOTAL_HINTS):
-            prio = 2
+        paid = _AMOUNT_LABELS[0].findall(line)
+        if paid:
+            candidates[0].update(float(value.replace(",", "")) for value in paid)
+            continue
+        if _BALANCE_CONTEXT.search(line) or _PAYMENT_CONTEXT.search(line):
+            allow_totals = False
+            continue
+        if _NON_TOTAL_CONTEXT.search(line):
+            continue
+        for priority, pattern in enumerate(_AMOUNT_LABELS[1:], start=1):
+            amounts = pattern.findall(line)
+            if amounts:
+                candidates[priority].update(float(value.replace(",", "")) for value in amounts)
+                break
         else:
-            prio = 1
-        if best is None or prio > best[0] or (prio == best[0] and val > best[1]):
-            best = (prio, val)
-    return round(best[1], 2) if best else None
+            candidates[3].update(float(value.replace(",", "")) for value in _AMOUNT_RE.findall(line))
+    for values in candidates[:1] if not allow_totals else candidates:
+        if values:
+            return round(next(iter(values)), 2) if len(values) == 1 else None
+    return None
 
 
 _DATE_PATTERNS: list[tuple["re.Pattern[str]", str]] = [
@@ -258,8 +316,9 @@ def analyze_text(text: str) -> dict:
             "notes": "No readable text found on the receipt. " + _DISCLAIMER,
         }
 
-    eligible = _find_matches(text, _ELIGIBLE)
-    ineligible = _find_matches(text, _INELIGIBLE)
+    item_text = _TOBACCO_NONUSER_RE.sub("", _CLINICAL_HISTORY_RE.sub("", text))
+    eligible = _find_matches(item_text, _ELIGIBLE)
+    ineligible = _find_matches(item_text, _INELIGIBLE)
     merchant_hits = _find_matches(text, _MERCHANT)
 
     merchant = _extract_merchant(text, merchant_hits)
