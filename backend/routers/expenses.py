@@ -16,10 +16,11 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend import ocr
-from backend.db import get_db
+from backend import corrections, ocr
+from backend.db import begin_financial_write, get_db
 from backend.eligibility import analyze_text
 from backend.models import HSAExpense, Receipt, ReimbursementLineItem
+from backend.money import cents
 from backend.schemas import (
     ExpenseCreate, ExpenseOut, ExpenseUpdate, LedgerYear,
     ReceiptAnalysisOut, ReceiptOut, VaultSummary,
@@ -65,7 +66,8 @@ def _coverage_map(db: Session, expense_ids: list[int]) -> dict[int, tuple[float,
 
 def _to_expense_out(e: HSAExpense, coverage: dict[int, tuple[float, int]]) -> ExpenseOut:
     covered, pull_count = coverage.get(e.id, (0.0, 0))
-    remaining = max(round(e.amount - covered, 2), 0.0)
+    remaining = 0.0 if e.reimbursed and not pull_count else max(cents(e.amount) - cents(covered), 0) / 100
+    overcovered = max(cents(covered) - cents(e.amount), 0) / 100
     # Parse the stored auto-review JSON into a typed object. Guarded so a stale or
     # malformed blob never 500s a list call.
     auto_review = None
@@ -86,6 +88,8 @@ def _to_expense_out(e: HSAExpense, coverage: dict[int, tuple[float, int]]) -> Ex
         covered_amount=round(covered, 2),
         remaining_amount=remaining,
         pull_count=pull_count,
+        overcovered_amount=overcovered,
+        reconciliation_required=overcovered > 0,
         auto_review_status=e.auto_review_status or "not_analyzed",
         auto_review_notes=e.auto_review_notes,
         auto_review=auto_review,
@@ -183,6 +187,7 @@ def get_expense(expense_id: int, db: Session = Depends(get_db)):
 
 @router.put("/expenses/{expense_id}", response_model=ExpenseOut)
 def update_expense(expense_id: int, body: ExpenseUpdate, db: Session = Depends(get_db)):
+    begin_financial_write(db)
     expense = db.get(HSAExpense, expense_id)
     if not expense:
         raise HTTPException(404, "Expense not found")
@@ -196,6 +201,14 @@ def update_expense(expense_id: int, body: ExpenseUpdate, db: Session = Depends(g
         .first()
         is not None
     )
+    if "amount" in data:
+        if data["amount"] is None:
+            raise HTTPException(422, "Amount cannot be null.")
+        if cents(data["amount"]) != cents(expense.amount) and (
+            has_coverage or expense.reimbursed or expense.reimbursed_date
+            or expense.reimbursement_id or corrections.has_corrections(db, expense_id)
+        ):
+            raise HTTPException(409, "Use an audited expense correction to change a cost with reimbursement history.")
     if "reimbursed" in data and has_coverage:
         raise HTTPException(
             400,
@@ -218,9 +231,13 @@ def update_expense(expense_id: int, body: ExpenseUpdate, db: Session = Depends(g
 
 @router.delete("/expenses/{expense_id}", status_code=204)
 def delete_expense(expense_id: int, db: Session = Depends(get_db)):
+    begin_financial_write(db)
     expense = db.get(HSAExpense, expense_id)
     if not expense:
         raise HTTPException(404, "Expense not found")
+
+    if corrections.has_corrections(db, expense_id) or expense.line_items or expense.reimbursed:
+        raise HTTPException(409, "This expense has financial history. Preserve it and use an audited correction.")
 
     for receipt in expense.receipts:
         f = RECEIPTS_DIR / receipt.filename
@@ -347,12 +364,14 @@ def get_summary(db: Session = Depends(get_db)):
 
     total_unreimbursed = 0.0
     total_reimbursed   = 0.0
+    total_overcovered = 0.0
     count_unreimbursed = 0
     count_reimbursed   = 0
     unreimb_with_receipts = 0
 
     for e in expenses:
         covered, _ = coverage.get(e.id, (0.0, 0))
+        total_overcovered += max(cents(covered) - cents(e.amount), 0) / 100
         # Manual override: if flagged reimbursed without any coverage, treat as fully reimbursed.
         if e.reimbursed and covered == 0:
             total_reimbursed += e.amount
@@ -380,6 +399,7 @@ def get_summary(db: Session = Depends(get_db)):
         count_unreimbursed=count_unreimbursed,
         count_reimbursed=count_reimbursed,
         receipt_completeness_pct=receipt_pct,
+        total_overcovered=round(total_overcovered, 2),
     )
 
 

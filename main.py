@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from backend.db import init_db
-from backend.routers import accounts, expenses, reimbursements, categories, system
+from backend.routers import accounts, expenses, reimbursements, categories, corrections, system
 
 
 def _allowed_hosts(*, include_testclient: bool | None = None) -> list[str]:
@@ -52,6 +52,7 @@ app = FastAPI(
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=_allowed_hosts())
 
 app.include_router(expenses.router)
+app.include_router(corrections.router)
 app.include_router(reimbursements.router)
 app.include_router(categories.router)
 app.include_router(accounts.router)

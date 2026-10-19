@@ -1,10 +1,14 @@
 import datetime as _dt
 import re
+import math
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, field_validator, model_validator
+from decimal import Decimal
+from typing import Any, Optional
+from uuid import UUID
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from config import HSA_CATEGORIES
+from backend.money import cents
 
 # Type alias — avoids Pydantic v2 field-name shadowing when a field is also called "date".
 DateType = _dt.date
@@ -31,7 +35,7 @@ class ExpenseCreate(BaseModel):
     @field_validator("amount")
     @classmethod
     def amount_must_be_positive(cls, v: float) -> float:
-        if v <= 0:
+        if not math.isfinite(v) or round(v, 2) <= 0:
             raise ValueError("Amount must be greater than 0")
         return round(v, 2)
 
@@ -48,7 +52,7 @@ class ExpenseUpdate(BaseModel):
     @field_validator("amount")
     @classmethod
     def amount_must_be_positive(cls, v: Optional[float]) -> Optional[float]:
-        if v is not None and v <= 0:
+        if v is not None and (not math.isfinite(v) or round(v, 2) <= 0):
             raise ValueError("Amount must be greater than 0")
         return round(v, 2) if v is not None else v
 
@@ -94,6 +98,8 @@ class ExpenseOut(BaseModel):
     covered_amount: float = 0.0     # sum of all line items pointing at this expense
     remaining_amount: float = 0.0   # max(0, amount - covered_amount); 0 means fully covered
     pull_count: int = 0             # how many distinct pulls back this expense
+    overcovered_amount: float = 0.0
+    reconciliation_required: bool = False
     auto_review_status: str = "not_analyzed"
     auto_review_notes: Optional[str] = None
     auto_review: Optional[ReceiptAnalysisOut] = None   # parsed auto_review_metadata
@@ -109,6 +115,48 @@ class VaultSummary(BaseModel):
     count_unreimbursed: int
     count_reimbursed: int
     receipt_completeness_pct: float
+    total_overcovered: float = 0.0
+
+
+class ExpenseCorrectionPreviewIn(BaseModel):
+    amount: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
+    reason: str = Field(min_length=1, max_length=2000)
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("reason")
+    @classmethod
+    def non_empty_reason(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("A correction reason is required")
+        return value
+
+
+class ExpenseCorrectionIn(ExpenseCorrectionPreviewIn):
+    expected_revision: str = Field(pattern=r"^[a-f0-9]{64}$")
+    operation_id: UUID
+
+
+class ExpenseCorrectionPreviewOut(BaseModel):
+    expense_id: int
+    revision: str
+    before_amount: float
+    after_amount: float
+    covered_amount: float
+    remaining_amount: float
+    overcovered_amount: float
+    reconciliation_required: bool
+
+
+class ExpenseCorrectionOut(BaseModel):
+    id: int
+    expense_id: int
+    operation_id: UUID
+    reason: str
+    before: dict[str, Any]
+    after: dict[str, Any]
+    created_at: datetime
 
 
 class LedgerYear(BaseModel):
@@ -129,7 +177,7 @@ class PullLineItemIn(BaseModel):
     @field_validator("covered_amount")
     @classmethod
     def positive(cls, v: float) -> float:
-        if v <= 0:
+        if not math.isfinite(v) or round(v, 2) <= 0:
             raise ValueError("covered_amount must be greater than 0")
         return round(v, 2)
 
@@ -144,7 +192,7 @@ class ReimbursementCreate(BaseModel):
     @field_validator("total_amount")
     @classmethod
     def total_must_be_positive(cls, v: float) -> float:
-        if v <= 0:
+        if not math.isfinite(v) or round(v, 2) <= 0:
             raise ValueError("total_amount must be greater than 0")
         return round(v, 2)
 
@@ -168,7 +216,7 @@ class ReimbursementCreate(BaseModel):
     @model_validator(mode="after")
     def sums_match(self) -> "ReimbursementCreate":
         s = round(sum(li.covered_amount for li in self.line_items), 2)
-        if abs(s - round(self.total_amount, 2)) > 0.01:
+        if sum(cents(li.covered_amount) for li in self.line_items) != cents(self.total_amount):
             raise ValueError(
                 f"Line items sum to ${s:.2f} but total_amount is ${self.total_amount:.2f}"
             )
@@ -193,6 +241,8 @@ class ReimbursementListItem(BaseModel):
     notes: Optional[str]
     expense_count: int
     total_amount: float
+    allocated_amount: float = 0.0
+    allocation_difference: float = 0.0
     account_id: Optional[int] = None
     account_name: Optional[str] = None
     created_at: datetime
@@ -364,6 +414,10 @@ class ReconcMatchedItem(BaseModel):
     pull_date: DateType
     pull_total: float
     pull_reference: Optional[str] = None
+    amount_difference: float = 0.0
+    allocation_difference: float = 0.0
+    overcovered_expense_ids: list[int] = []
+    reconciliation_required: bool = False
 
 
 class ReconcUnmatchedPull(BaseModel):

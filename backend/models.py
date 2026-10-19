@@ -62,6 +62,19 @@ class Receipt(Base):
     expense = relationship("HSAExpense", back_populates="receipts")
 
 
+class ExpenseCorrection(Base):
+    __tablename__ = "expense_corrections"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    expense_id = Column(Integer, ForeignKey("hsa_expenses.id"), nullable=False, index=True)
+    operation_id = Column(String, nullable=False, unique=True)
+    request_hash = Column(String, nullable=False)
+    reason = Column(Text, nullable=False)
+    before_json = Column(Text, nullable=False)
+    after_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 class Reimbursement(Base):
     """A single HSA distribution event covering one or more expense slices."""
     __tablename__ = "reimbursements"
