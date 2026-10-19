@@ -6,6 +6,10 @@ The correction API changes only the expense cost and its derived reimbursement s
 
 ## Preview and apply
 
+In the Vault, open **Manage → Correct cost…**, enter the supported cost and reason, and choose **Preview correction**. Review the cost, existing coverage, remaining amount, and any excess before choosing **Save correction**. Editing either input invalidates the preview. A stale preview must be refreshed; an uncertain save offers **Retry same correction** with the original operation ID. Correction history appears in Manage Expense.
+
+The account reconciliation view shows linked records with differences in **Needs reconciliation**, separate from **Amounts agree**. Expense and pull views also show excess coverage. These warnings remain until the underlying evidence is reconciled.
+
 1. Preserve a current database and receipt backup and verify the supporting evidence.
 2. Send `POST /api/v1/expenses/{expense_id}/corrections/preview` with `amount` and a nonempty `reason`. The amount must be nonnegative and have at most two decimal places; zero supports a fully adjusted cost.
 3. Review the returned before/after cost, recorded coverage, remaining amount, and excess coverage. A one-cent difference remains visible.
@@ -26,3 +30,19 @@ Expense cost and audit storage share one SQLite transaction. A storage failure r
 - The existing `matched` collection still means the records are linked. A linked item with `reconciliation_required: true` is not reconciled.
 
 The audit table is additive and created on startup. Existing expense, reimbursement, distribution, and receipt records are not rewritten by schema initialization. The audit is included in a database backup; the ordinary ledger CSV is not an audit export.
+
+Financial API reads bypass browser caching. The service worker caches only local static assets and removes prior Stowe caches that could contain medical responses. If the API is unavailable, the app reports the failure instead of presenting cached balances as current.
+
+## Regression checks
+
+Run Python tests with the development requirements installed. Browser checks are development-only; Node and Playwright are not required by the packaged app.
+
+```sh
+python -m pytest -q
+npm ci
+npx playwright install chromium
+npm run test:service-worker
+npm run test:ui
+```
+
+Set `STOWE_TEST_PYTHON` to the Python interpreter with the development requirements if it is not `python3`. `STOWE_TEST_BROWSER` can select an existing compatible Chromium executable. Browser tests start a loopback server on a temporary port with a fresh synthetic database and receipts directory. They retain synthetic screenshots and logs in the printed temporary directory and stop their server and browser when finished.

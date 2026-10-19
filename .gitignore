@@ -47,3 +47,4 @@ Icon?
 # ── Release artifacts ────────────────────────────────────────────────────────
 *.dmg
 *-windows-setup.exe
+node_modules/

@@ -46,6 +46,7 @@ class HSAExpense(Base):
 
     receipts   = relationship("Receipt", back_populates="expense", cascade="all, delete-orphan")
     line_items = relationship("ReimbursementLineItem", back_populates="expense")
+    corrections = relationship("ExpenseCorrection", viewonly=True)
 
 
 class Receipt(Base):

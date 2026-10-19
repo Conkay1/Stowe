@@ -240,9 +240,28 @@ async function renderDetail(container, accountId) {
 
 // ── Reconcile tab ─────────────────────────────────────────────────────────────
 
+function linkedRows(items) {
+  const signed = amount => (amount > 0 ? "+" : amount < 0 ? "−" : "") + fmt(amount);
+  return items.map(item => `
+    <div class="recon-row">
+      <div class="recon-row-left">
+        <div class="recon-row-main">${fmt(item.distribution.amount)} withdrawn · ${fmtDate(item.distribution.date)}</div>
+        <div class="recon-row-sub">${esc(item.distribution.description || "(no description)")}</div>
+        <div class="recon-row-sub">Recorded pull: ${fmt(item.pull_total)} · Withdrawal difference: ${signed(item.amount_difference)}</div>
+        ${item.allocation_difference ? `<p class="correction-error">Pull minus allocations: ${signed(item.allocation_difference)}. Review the source records.</p>` : ""}
+        ${(item.overcovered_expenses || []).map(expense => `<p><a href="#/vault/${expense.expense_id}">Review expense #${expense.expense_id}</a>: <strong>${fmt(expense.overcovered_amount)}</strong> coverage above its corrected cost across all pulls.</p>`).join("")}
+        <div class="recon-row-sub"><a href="#/pulls/${item.pull_id}">View pull →</a> · ${esc(item.distribution.match_method || "manual")} link</div>
+      </div>
+      <div class="recon-row-actions"><button class="btn btn-secondary btn-sm" data-unmatch="${item.distribution.id}">Unlink</button></div>
+    </div>
+  `).join("");
+}
+
 function renderReconcileTab(account, recon) {
   const el = document.getElementById("tab-content");
-  const matchedCount = recon.matched.length;
+  const differences = recon.matched.filter(item => item.reconciliation_required);
+  const agreed = recon.matched.filter(item => !item.reconciliation_required);
+  const matchedCount = agreed.length;
   const unmatchedDistribCount = recon.unmatched_distributions.length;
   const unmatchedPullCount = recon.unmatched_pulls.length;
 
@@ -260,6 +279,14 @@ function renderReconcileTab(account, recon) {
       <div class="empty-state">
         No data yet. Import a custodian CSV to compare distributions against your Pulls.
       </div>
+    ` : ""}
+
+    ${differences.length > 0 ? `
+      <section class="correction-box correction-warning" id="reconciliation-differences">
+        <h3>Needs reconciliation · ${differences.length} linked withdrawal${differences.length === 1 ? "" : "s"}</h3>
+        <p>Review these differences before treating the linked records as reconciled.</p>
+        <div class="recon-list">${linkedRows(differences)}</div>
+      </section>
     ` : ""}
 
     ${unmatchedDistribCount > 0 ? `
@@ -307,25 +334,11 @@ function renderReconcileTab(account, recon) {
     ${matchedCount > 0 ? `
       <div class="card" style="padding:0;overflow:hidden">
         <div class="recon-section-header green" id="matched-toggle" style="cursor:pointer">
-          Matched <span class="recon-count">${matchedCount}</span>
+          Amounts agree <span class="recon-count">${matchedCount}</span>
           <span class="recon-section-sub" id="matched-toggle-label">— click to expand</span>
         </div>
         <div class="recon-list" id="matched-list" hidden>
-          ${recon.matched.map(m => `
-            <div class="recon-row">
-              <div class="recon-row-left">
-                <div class="recon-row-main">${fmt(m.distribution.amount)} · ${fmtDate(m.distribution.date)}</div>
-                <div class="recon-row-sub">
-                  ${esc(m.distribution.description || "(no description)")}
-                  · linked to pull <a href="#/pulls/${m.pull_id}">${fmtDate(m.pull_date)}</a>
-                  · <span class="text-muted">(${esc(m.distribution.match_method || "manual")})</span>
-                </div>
-              </div>
-              <div class="recon-row-actions">
-                <button class="btn btn-secondary btn-sm" data-unmatch="${m.distribution.id}">Unlink</button>
-              </div>
-            </div>
-          `).join("")}
+          ${linkedRows(agreed)}
         </div>
       </div>
     ` : ""}

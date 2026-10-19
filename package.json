@@ -1,0 +1,11 @@
+{
+  "name": "stowe-ui-tests",
+  "private": true,
+  "scripts": {
+    "test:service-worker": "node --test tests/test_service_worker.cjs",
+    "test:ui": "node --test tests/test_corrections_ui.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.61.1"
+  }
+}

@@ -79,11 +79,14 @@ def _line_item_out(li: ReimbursementLineItem) -> PullLineItemOut:
         date=e.date,
         category=e.category,
         receipt_count=len(e.receipts),
+        overcovered_amount=max(sum(cents(item.covered_amount) for item in e.line_items) - cents(e.amount), 0) / 100,
     )
 
 
 def _to_list_item(pull: Reimbursement) -> ReimbursementListItem:
     allocated = sum(cents(li.covered_amount) for li in pull.line_items)
+    difference = cents(pull.distribution.amount) - cents(pull.total_amount) if pull.distribution else None
+    excess = any(sum(cents(item.covered_amount) for item in li.expense.line_items) > cents(li.expense.amount) for li in pull.line_items)
     return ReimbursementListItem(
         id=pull.id,
         date=pull.date,
@@ -93,6 +96,8 @@ def _to_list_item(pull: Reimbursement) -> ReimbursementListItem:
         total_amount=cents(pull.total_amount) / 100,
         allocated_amount=allocated / 100,
         allocation_difference=(cents(pull.total_amount) - allocated) / 100,
+        amount_difference=difference / 100 if difference is not None else None,
+        reconciliation_required=bool(difference or cents(pull.total_amount) - allocated or excess),
         account_id=pull.account_id,
         account_name=pull.account.name if pull.account else None,
         created_at=pull.created_at,
@@ -108,6 +113,7 @@ def _to_full(pull: Reimbursement) -> ReimbursementOut:
             for li in sorted(pull.line_items, key=lambda li: li.expense.date, reverse=True)
         ],
         distribution=DistributionOut.model_validate(pull.distribution) if pull.distribution else None,
+        has_corrections=any(li.expense.corrections for li in pull.line_items),
     )
 
 

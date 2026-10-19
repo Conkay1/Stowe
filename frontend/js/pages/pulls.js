@@ -192,11 +192,13 @@ function renderPullsList(pulls, accounts) {
     let badgeHtml = "";
     // Only show badges when the user has at least one account configured —
     // keeps the v0.4 list view byte-identical when no accounts exist.
-    if (accounts.length > 0) {
+    if (p.reconciliation_required) {
+      badgeHtml = `<span class="pull-badge amber">Needs reconciliation</span>`;
+    } else if (accounts.length > 0) {
       if (!p.account_id) {
         badgeHtml = `<span class="pull-badge gray">No account</span>`;
       } else if (matchedPullIds.has(p.id)) {
-        badgeHtml = `<span class="pull-badge green">Matched · ${esc(p.account_name || "")}</span>`;
+        badgeHtml = `<span class="pull-badge green">Amounts agree · ${esc(p.account_name || "")}</span>`;
       } else {
         badgeHtml = `<span class="pull-badge amber">Unmatched · ${esc(p.account_name || "")}</span>`;
       }
@@ -265,7 +267,9 @@ async function renderDetail(container, pullId) {
 
   const lineRow = li => {
     const partial = li.covered_amount + 0.005 < li.expense_amount;
-    const amountCell = partial
+    const amountCell = li.overcovered_amount > 0
+      ? `<span>${fmt(li.covered_amount)} allocated here</span><div class="correction-error">${fmt(li.overcovered_amount)} above corrected cost across all pulls · <a href="#/vault/${li.expense_id}">Review expense →</a></div>`
+      : partial
       ? `<span style="color:var(--green);font-weight:600">${fmt(li.covered_amount)}</span><span class="text-muted" style="font-size:12px"> of ${fmt(li.expense_amount)}</span>`
       : `<span style="font-weight:600">${fmt(li.covered_amount)}</span>`;
     return { partial, amountCell };
@@ -290,6 +294,7 @@ async function renderDetail(container, pullId) {
     </div>
 
     ${accountPanel}
+    ${pull.allocation_difference ? `<div class="correction-box correction-warning">Pull total differs from its allocations by ${pull.allocation_difference < 0 ? "−" : "+"}${fmt(pull.allocation_difference)}. Review the source records.</div>` : ""}
 
     <div class="section-header">
       <h2>Receipts backing this pull</h2>
@@ -344,7 +349,8 @@ async function renderDetail(container, pullId) {
     </div>
 
     <div style="margin-top:24px;display:flex;justify-content:flex-end">
-      <button id="undo-pull-btn" class="btn btn-danger">Undo this pull</button>
+      ${pull.has_corrections ? `<p class="text-muted correction-help">This pull supports an audited correction and remains in the history.</p>` : ""}
+      <button id="undo-pull-btn" class="btn btn-danger" ${pull.has_corrections ? "disabled" : ""}>Undo this pull</button>
     </div>
   `;
 
@@ -391,7 +397,8 @@ function renderPullAccountPanel(pull, accounts) {
     const d = pull.distribution;
     bodyHtml = `
       <div class="recon-matched">
-        <div><strong>${fmt(d.amount)}</strong> · ${fmtDate(d.date)} <span class="badge badge-green" style="margin-left:6px">Matched</span></div>
+        <div><strong>${fmt(d.amount)}</strong> · ${fmtDate(d.date)} <span class="badge ${pull.reconciliation_required ? "badge-needs-review" : "badge-green"}" style="margin-left:6px">${pull.reconciliation_required ? "Needs reconciliation" : "Amounts agree"}</span></div>
+        <p class="correction-help">Withdrawal difference: ${pull.amount_difference > 0 ? "+" : pull.amount_difference < 0 ? "−" : ""}${fmt(pull.amount_difference || 0)}</p>
         <div class="text-muted" style="font-size:12px;margin-top:2px">
           ${esc(d.description || "(no description)")}
           ${d.custodian_ref ? ` · ref ${esc(d.custodian_ref)}` : ""}

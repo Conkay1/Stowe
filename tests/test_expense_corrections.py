@@ -109,6 +109,12 @@ def test_correction_preserves_cash_and_receipts_and_audits_cost(client, covered,
     assert matched["amount_difference"] == 0
     assert matched["reconciliation_required"] is (excess > 0)
     assert matched["overcovered_expense_ids"] == ([eid] if excess else [])
+    assert matched["overcovered_expenses"] == ([{"expense_id": eid, "overcovered_amount": excess}] if excess else [])
+    pull_state = client.get(f"/api/v1/reimbursements/{p['id']}").json()
+    assert pull_state["has_corrections"] is True
+    assert pull_state["line_items"][0]["overcovered_amount"] == excess
+    assert pull_state["reconciliation_required"] is (excess > 0)
+    assert after["correction_count"] == 1
     if remaining == 0:
         assert pull(client, eid, 0.01).status_code == 400
     assert client.delete(f"/api/v1/reimbursements/{p['id']}").status_code == 409

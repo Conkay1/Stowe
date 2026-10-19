@@ -545,10 +545,11 @@ def get_reconciliation(account_id: int, db: Session = Depends(get_db)):
             p = d.reimbursement
             difference = cents(d.amount) - cents(p.total_amount)
             allocation_difference = cents(p.total_amount) - sum(cents(item.covered_amount) for item in p.line_items)
-            overcovered_ids = sorted({
-                item.expense_id for item in p.line_items
-                if sum(cents(other.covered_amount) for other in item.expense.line_items) > cents(item.expense.amount)
-            })
+            overcovered = {
+                item.expense_id: max(sum(cents(other.covered_amount) for other in item.expense.line_items) - cents(item.expense.amount), 0)
+                for item in p.line_items
+            }
+            overcovered_ids = sorted(eid for eid, excess in overcovered.items() if excess > 0)
             matched.append(ReconcMatchedItem(
                 distribution=DistributionOut.model_validate(d),
                 pull_id=p.id,
@@ -558,6 +559,7 @@ def get_reconciliation(account_id: int, db: Session = Depends(get_db)):
                 amount_difference=difference / 100,
                 allocation_difference=allocation_difference / 100,
                 overcovered_expense_ids=overcovered_ids,
+                overcovered_expenses=[{"expense_id": eid, "overcovered_amount": overcovered[eid] / 100} for eid in overcovered_ids],
                 reconciliation_required=bool(difference or allocation_difference or overcovered_ids),
             ))
         else:

@@ -90,6 +90,7 @@ def _to_expense_out(e: HSAExpense, coverage: dict[int, tuple[float, int]]) -> Ex
         pull_count=pull_count,
         overcovered_amount=overcovered,
         reconciliation_required=overcovered > 0,
+        correction_count=len(e.corrections),
         auto_review_status=e.auto_review_status or "not_analyzed",
         auto_review_notes=e.auto_review_notes,
         auto_review=auto_review,
