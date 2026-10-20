@@ -227,3 +227,47 @@ def test_stale_review_cannot_overwrite_changed_receipts(client, monkeypatch, cha
             assert item.auto_review_status == "needs_review"
             assert item.auto_review_notes == "Newer analysis"
             assert item.amount == 42.50
+
+
+@pytest.mark.parametrize("change", ["amount", "date", "auto_review_status", "auto_review_notes"])
+def test_stale_review_cannot_overwrite_expense_context(client, monkeypatch, change):
+    from datetime import date
+
+    from backend import db as db_module
+    from backend.models import HSAExpense
+    from backend.routers.expenses import _review_expense_after_upload
+
+    expense = client.post("/api/v1/expenses", json={
+        "merchant": "Synthetic Clinic", "date": "2026-01-15", "amount": 25.00,
+    }).json()
+    monkeypatch.setattr(ocr, "extract_text", lambda _: ("", "none"))
+    uploaded = client.post(f"/api/v1/expenses/{expense['id']}/receipts", files={
+        "file": ("receipt.pdf", b"%PDF-synthetic", "application/pdf"),
+    })
+    assert uploaded.status_code == 201
+    before = client.get(f"/api/v1/expenses/{expense['id']}").json()
+    changes = {
+        "amount": 30.00,
+        "date": date(2026, 2, 1),
+        "auto_review_status": "needs_review",
+        "auto_review_notes": "Newer review note",
+    }
+
+    def edit_during_ocr(_path):
+        with db_module.SessionLocal() as db:
+            item = db.get(HSAExpense, expense["id"])
+            setattr(item, change, changes[change])
+            db.commit()
+        return "Synthetic Clinic\nOffice visit\nTotal $25.00\n2026-01-15", "pdf-text"
+
+    monkeypatch.setattr(ocr, "extract_text", edit_during_ocr)
+    _review_expense_after_upload(expense["id"])
+
+    after = client.get(f"/api/v1/expenses/{expense['id']}").json()
+    changed_value = changes[change]
+    if isinstance(changed_value, date):
+        changed_value = changed_value.isoformat()
+    expected = {**before, change: changed_value}
+    if change == "amount":
+        expected["remaining_amount"] = changed_value
+    assert after == expected
