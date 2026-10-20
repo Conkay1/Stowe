@@ -122,4 +122,95 @@ def test_receipt_hints_do_not_change_financial_records(client, monkeypatch):
         assert download.status_code == 200
         assert download.content == content
         assert after["auto_review"]["matched_ineligible"] == []
-        assert after["auto_review"]["amount"] == 25.00
+        assert after["auto_review"]["amount"] is None
+        assert after["auto_review_status"] == "needs_review"
+        assert "saved expense" in after["auto_review_notes"]
+
+
+def test_support_history_cannot_replace_existing_expense_hints(client, monkeypatch):
+    from backend import ocr
+
+    texts = {
+        b"%PDF-synthetic-receipt": (
+            "Synthetic Clinic\nOffice visit\nTotal $25.00\n2026-01-15"
+        ),
+        b"%PDF-synthetic-history": (
+            "Synthetic Clinic\nPrescription history\nGrand total $5000.00\n"
+            "Exported 2026-07-01"
+        ),
+    }
+    monkeypatch.setattr(ocr, "extract_text", lambda path: (texts[path.read_bytes()], "pdf-text"))
+    created = client.post("/api/v1/expenses", json={
+        "merchant": "Synthetic Clinic", "date": "2026-01-15",
+        "amount": 25.00, "category": "Medical", "notes": "Verified transaction",
+    })
+    assert created.status_code == 201
+    expense_id = created.json()["id"]
+    pull = client.post("/api/v1/reimbursements", json={
+        "date": "2026-02-01", "total_amount": 15.00,
+        "line_items": [{"expense_id": expense_id, "covered_amount": 15.00}],
+    })
+    assert pull.status_code == 201
+    pull_before = pull.json()
+    before = client.get(f"/api/v1/expenses/{expense_id}").json()
+    receipts = []
+    for filename, content in zip(("receipt.pdf", "history.pdf"), texts):
+        uploaded = client.post(f"/api/v1/expenses/{expense_id}/receipts", files={
+            "file": (filename, content, "application/pdf"),
+        })
+        assert uploaded.status_code == 201
+        receipts.append(uploaded.json())
+
+    for _ in range(2):
+        analyzed = client.post(f"/api/v1/expenses/{expense_id}/analyze")
+        assert analyzed.status_code == 200
+        after = analyzed.json()
+        assert (after["auto_review"]["amount"], after["auto_review"]["date"]) == (None, None)
+        assert after["auto_review_status"] == "needs_review"
+        assert after["auto_review"]["confidence"] == "low"
+        assert "saved expense" in after["auto_review_notes"]
+        assert "amount" in after["auto_review_notes"]
+        assert "date" in after["auto_review_notes"]
+        for field, value in before.items():
+            if field not in {"receipts", "auto_review", "auto_review_status", "auto_review_notes"}:
+                assert after[field] == value
+        assert after["receipts"] == receipts
+        assert client.get(f"/api/v1/reimbursements/{pull_before['id']}").json() == {
+            **pull_before,
+            "line_items": [{**pull_before["line_items"][0], "receipt_count": 2}],
+        }
+        for receipt, content in zip(receipts, texts):
+            downloaded = client.get(f"/api/v1/receipts/{receipt['id']}/file")
+            assert downloaded.status_code == 200
+            assert downloaded.content == content
+
+
+@pytest.mark.parametrize(("text", "amount", "when", "status"), [
+    ("Total $25.00\n2026-01-15", 25.00, "2026-01-15", "eligible"),
+    ("Total $5000.00\n2026-01-15", None, "2026-01-15", "needs_review"),
+    ("Total $25.00\n2026-07-01", 25.00, None, "needs_review"),
+    ("No transaction fields", None, None, "eligible"),
+])
+def test_existing_expense_review_suppresses_only_conflicting_hints(
+    client, monkeypatch, text, amount, when, status
+):
+    from backend import ocr
+
+    monkeypatch.setattr(ocr, "extract_text", lambda path: (
+        "Synthetic Clinic\nOffice visit\n" + text, "pdf-text"
+    ))
+    expense = client.post("/api/v1/expenses", json={
+        "merchant": "Synthetic Clinic", "date": "2026-01-15", "amount": 25.00,
+    }).json()
+    response = client.post(f"/api/v1/expenses/{expense['id']}/receipts", files={
+        "file": ("receipt.pdf", b"%PDF-synthetic", "application/pdf"),
+    })
+    assert response.status_code == 201
+
+    reviewed = client.get(f"/api/v1/expenses/{expense['id']}").json()
+
+    assert reviewed["auto_review_status"] == status
+    assert reviewed["auto_review"]["amount"] == amount
+    assert reviewed["auto_review"]["date"] == when
+    assert reviewed["amount"] == 25.00
+    assert reviewed["date"] == "2026-01-15"

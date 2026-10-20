@@ -472,7 +472,7 @@ def test_upload_triggers_auto_review(client, monkeypatch):
         ocr, "extract_text",
         lambda p: ("WALGREENS PHARMACY\nFLU SHOT $40.00\n05/01/2026", "vision"),
     )
-    expense = _make_expense(client)
+    expense = _make_expense(client, amount=40.00, date="2026-05-01")
     res = client.post(
         f"/api/v1/expenses/{expense['id']}/receipts",
         files={"file": ("r.png", io.BytesIO(b"\x89PNG\r\n\x1a\nxx"), "image/png")},
@@ -488,7 +488,7 @@ def test_upload_triggers_auto_review(client, monkeypatch):
 
 def test_reanalyze_endpoint(client, monkeypatch):
     from backend import ocr
-    expense = _make_expense(client)
+    expense = _make_expense(client, amount=120.00, date="2026-04-04")
 
     # First upload yields no readable text → not_analyzed.
     monkeypatch.setattr(ocr, "extract_text", lambda p: ("", "none"))

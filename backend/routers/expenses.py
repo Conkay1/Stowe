@@ -123,6 +123,10 @@ def _review_expense(db: Session, expense: HSAExpense) -> None:
     try:
         expense_id = expense.id
         receipts = [(r.id, r.filename) for r in expense.receipts]
+        previous_amount = expense.amount
+        previous_date = expense.date
+        previous_status = expense.auto_review_status
+        previous_notes = expense.auto_review_notes
         previous_metadata = expense.auto_review_metadata
         db.rollback()
         texts: list[str] = []
@@ -138,6 +142,20 @@ def _review_expense(db: Session, expense: HSAExpense) -> None:
                 method = m
         result = analyze_text("\n\n".join(texts))   # handles "" → not_analyzed
         result["method"] = method
+        conflicts = []
+        if result["amount"] is not None and cents(result["amount"]) != cents(previous_amount):
+            conflicts.append("amount")
+        if result["date"] is not None and result["date"] != previous_date.isoformat():
+            conflicts.append("date")
+        if conflicts:
+            for field in conflicts:
+                result[field] = None
+            result["status"] = "needs_review"
+            result["confidence"] = "low"
+            result["notes"] = (
+                f"Review suggested: extracted {' and '.join(conflicts)} do not match the "
+                "saved expense; conflicting hints were omitted. " + result["notes"]
+            )
         receipt_count = select(func.count(Receipt.id)).where(
             Receipt.expense_id == expense_id,
         ).scalar_subquery()
@@ -146,6 +164,10 @@ def _review_expense(db: Session, expense: HSAExpense) -> None:
         ).scalar_subquery()
         db.query(HSAExpense).filter(
             HSAExpense.id == expense_id,
+            HSAExpense.amount == previous_amount,
+            HSAExpense.date == previous_date,
+            HSAExpense.auto_review_status == previous_status,
+            HSAExpense.auto_review_notes == previous_notes,
             HSAExpense.auto_review_metadata == previous_metadata,
             receipt_count == len(receipts), matching_count == len(receipts),
         ).update({
