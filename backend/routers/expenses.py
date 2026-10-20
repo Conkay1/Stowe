@@ -131,6 +131,7 @@ def _review_expense(db: Session, expense: HSAExpense) -> None:
         db.rollback()
         texts: list[str] = []
         method = "none"
+        image_notice = None
         for _receipt_id, filename in receipts:
             f = RECEIPTS_DIR / filename
             if not f.exists():
@@ -138,9 +139,18 @@ def _review_expense(db: Session, expense: HSAExpense) -> None:
             text, m = ocr.extract_text(f)
             if text.strip():
                 texts.append(text)
+            elif f.suffix.lower() in ocr.IMAGE_EXTS:
+                image_notice = ocr.image_ocr_notice() or (
+                    "Image recognition did not return readable text. Try Analyze again, "
+                    "or verify this receipt manually."
+                )
             if m != "none":
                 method = m
         result = analyze_text("\n\n".join(texts))   # handles "" → not_analyzed
+        if image_notice:
+            result["status"] = "needs_review" if texts else "not_analyzed"
+            result["confidence"] = "low"
+            result["notes"] = image_notice
         result["method"] = method
         conflicts = []
         if result["amount"] is not None and cents(result["amount"]) != cents(previous_amount):
@@ -341,6 +351,11 @@ def analyze_receipt(file: UploadFile = File(...)):
         tmp.close()
         text, method = ocr.extract_text(Path(tmp.name))
         result = analyze_text(text)
+        if not text.strip() and ext in ocr.IMAGE_EXTS:
+            result["notes"] = ocr.image_ocr_notice() or (
+                "Image recognition did not return readable text. Try Analyze again, "
+                "or verify this receipt manually."
+            )
         result["method"] = method
         return ReceiptAnalysisOut(**result)
     finally:
@@ -376,7 +391,7 @@ def delete_receipt(receipt_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/receipts/{receipt_id}/file")
-def get_receipt_file(receipt_id: int, db: Session = Depends(get_db)):
+def get_receipt_file(receipt_id: int, preview: bool = False, db: Session = Depends(get_db)):
     receipt = db.get(Receipt, receipt_id)
     if not receipt:
         raise HTTPException(404, "Receipt not found")
@@ -389,6 +404,10 @@ def get_receipt_file(receipt_id: int, db: Session = Depends(get_db)):
         str(f),
         media_type=receipt.file_type or "application/octet-stream",
         filename=receipt.original_filename or receipt.filename,
+        content_disposition_type=(
+            "inline" if preview and receipt.file_type in ALLOWED_RECEIPT_MIMES else "attachment"
+        ),
+        headers={"X-Content-Type-Options": "nosniff"},
     )
 
 

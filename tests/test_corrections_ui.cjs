@@ -81,6 +81,72 @@ async function preview(page, amount = "70", reason = "Synthetic later insurer ad
   await page.locator("#correction-preview h3").waitFor();
 }
 
+test("receipt preview stays in app and preserves unsaved Manage edits through every close path", async () => {
+  const { expense } = await seed();
+  const filename = 'Synthetic <img src=x onerror=alert(1)> "receipt".png';
+  const bytes = fs.readFileSync(path.join(__dirname, "../assets/ocr-warmup.png"));
+  const upload = await api.post(origin + `/api/v1/expenses/${expense.id}/receipts`, {
+    multipart: { file: { name: filename, mimeType: "image/png", buffer: bytes } },
+  });
+  assert.equal(upload.status(), 201);
+  const rid = (await upload.json()).id;
+  const before = await call("get", `/expenses/${expense.id}`);
+  const { page, context } = await openExpense(expense.id);
+  try {
+    const notes = page.locator('#manage-form [name="notes"]');
+    const merchant = page.locator('#manage-form [name="merchant"]');
+    await notes.fill("Unsaved synthetic edit");
+    await merchant.fill("Unsaved synthetic merchant");
+    for (const close of ["button", "escape", "backdrop"]) {
+      await page.locator(`[data-receipt-preview="${rid}"]`).click();
+      const modal = page.locator("#receipt-preview");
+      await modal.waitFor();
+      const img = modal.locator("img");
+      await img.evaluate(el => el.decode());
+      assert.equal(await img.getAttribute("src"), `/api/v1/receipts/${rid}/file?preview=true`);
+      assert.equal(await modal.locator("#receipt-preview-title").innerText(), filename);
+      assert.equal(await modal.locator("img").count(), 1);
+      assert.equal(await page.locator("#modal-overlay").evaluate(el => el.inert), true);
+      assert.equal(context.pages().length, 1);
+      assert.ok((await img.boundingBox()).width > 300);
+      if (close === "button") await modal.getByRole("button", { name: "Close receipt preview" }).click();
+      if (close === "escape") await page.keyboard.press("Escape");
+      if (close === "backdrop") await modal.click({ position: { x: 2, y: 2 } });
+      await modal.waitFor({ state: "detached" });
+      assert.equal(await notes.inputValue(), "Unsaved synthetic edit");
+      assert.equal(await merchant.inputValue(), "Unsaved synthetic merchant");
+      assert.equal(await page.locator("#modal-overlay").evaluate(el => el.inert), false);
+      assert.equal(await page.locator(`[data-receipt-preview="${rid}"]`).evaluate(el => el === document.activeElement), true);
+    }
+    assert.deepEqual(await call("get", `/expenses/${expense.id}`), before);
+    assert.deepEqual(await (await api.get(origin + `/api/v1/receipts/${rid}/file`)).body(), bytes);
+  } finally { await context.close(); }
+});
+
+test("PDF preview uses inline same-origin receipt ID and keeps the original download route", async () => {
+  const { expense } = await seed();
+  const bytes = Buffer.from("%PDF-1.4\nSynthetic PDF evidence\n%%EOF\n");
+  const upload = await api.post(origin + `/api/v1/expenses/${expense.id}/receipts`, {
+    multipart: { file: { name: "Synthetic.pdf", mimeType: "application/pdf", buffer: bytes } },
+  });
+  assert.equal(upload.status(), 201);
+  const rid = (await upload.json()).id;
+  const { page, context } = await openExpense(expense.id);
+  try {
+    await page.locator(`[data-receipt-preview="${rid}"]`).click();
+    const frame = page.locator("#receipt-preview iframe");
+    await frame.waitFor();
+    assert.equal(await frame.getAttribute("src"), `/api/v1/receipts/${rid}/file?preview=true`);
+    assert.equal(await page.locator("#receipt-preview a").getAttribute("href"), `/api/v1/receipts/${rid}/file`);
+    const response = await api.get(origin + `/api/v1/receipts/${rid}/file?preview=true`);
+    assert.match(response.headers()["content-disposition"], /^inline;/);
+    assert.deepEqual(await response.body(), bytes);
+    assert.equal(context.pages().length, 1);
+    await page.getByRole("button", { name: "Close receipt preview" }).click();
+    assert.equal(await page.locator("#manage-form").isVisible(), true);
+  } finally { await context.close(); }
+});
+
 test("correction UI preserves evidence, exposes excess and allows metadata on a zero cost", async () => {
   const { expense, pull } = await seed();
   const { page, context } = await openExpense(expense.id);

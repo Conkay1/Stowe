@@ -1069,7 +1069,7 @@ def test_default_bind_host_is_loopback(tmp_path, monkeypatch):
     """Start uvicorn with main:app on BIND_HOST and a free port.
 
     A connection to 127.0.0.1 succeeds. A connection to another local IPv4
-    address is refused. Skips if the machine has no non-loopback IPv4.
+    address fails. Skips if the machine has no non-loopback IPv4.
     """
     import socket
     import threading
@@ -1105,7 +1105,8 @@ def test_default_bind_host_is_loopback(tmp_path, monkeypatch):
             time.sleep(0.05)
         assert server.started, "uvicorn did not start listening"
 
-        port = server.servers[0].sockets[0].getsockname()[1]
+        address, port = server.servers[0].sockets[0].getsockname()[:2]
+        assert address == BIND_HOST
 
         connected = False
         connect_deadline = time.monotonic() + 5
@@ -1120,7 +1121,7 @@ def test_default_bind_host_is_loopback(tmp_path, monkeypatch):
                 time.sleep(0.05)
         assert connected, last_error
 
-        with pytest.raises(ConnectionRefusedError):
+        with pytest.raises((ConnectionRefusedError, TimeoutError)):
             socket.create_connection((lan_ip, port), timeout=2)
     finally:
         server.should_exit = True

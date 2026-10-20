@@ -503,24 +503,96 @@ function attachReanalyze(expenseId) {
   });
 }
 
+const previewTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"]);
+
 function renderReceiptGrid(receipts) {
   if (receipts.length === 0) return `<span class="text-muted" style="font-size:13px">No receipts yet</span>`;
   return receipts.map(r => {
+    if (!Number.isSafeInteger(r.id) || r.id <= 0) return "";
     const url = api.receipts.fileUrl(r.id);
-    const isImage = r.file_type && r.file_type.startsWith("image/");
+    const canPreview = previewTypes.has(r.file_type);
+    const isImage = canPreview && r.file_type.startsWith("image/");
+    const name = esc(r.original_filename || "Receipt");
     const thumb = isImage
-      ? `<img src="${url}" alt="${r.original_filename}">`
+      ? `<img src="${url}" alt="${name}">`
       : `<span class="pdf-icon">📄</span>`;
+    const control = canPreview
+      ? `<button type="button" class="receipt-thumb" data-receipt-preview="${r.id}" data-receipt-type="${r.file_type}" data-receipt-name="${name}" aria-label="Preview ${name}">${thumb}</button>`
+      : `<a href="${url}" class="receipt-thumb" aria-label="Download ${name}">${thumb}</a>`;
     return `
       <div class="receipt-item">
-        <a href="${url}" target="_blank" class="receipt-thumb">${thumb}</a>
+        ${control}
         <button class="receipt-del" data-receipt-del="${r.id}" title="Delete receipt">×</button>
       </div>
     `;
   }).join("");
 }
 
+function showReceiptPreview(trigger) {
+  const id = Number(trigger.dataset.receiptPreview);
+  const type = trigger.dataset.receiptType;
+  if (!Number.isSafeInteger(id) || id <= 0 || !previewTypes.has(type)) return;
+  if (document.getElementById("receipt-preview")) return;
+  const underlying = document.getElementById("modal-overlay");
+  const wasInert = underlying.inert;
+  const overlay = document.createElement("div");
+  overlay.id = "receipt-preview";
+  overlay.className = "modal-overlay receipt-preview-overlay";
+  const box = document.createElement("div");
+  box.className = "modal-box receipt-preview-box";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
+  box.setAttribute("aria-labelledby", "receipt-preview-title");
+  const title = document.createElement("h2");
+  title.id = "receipt-preview-title";
+  title.className = "modal-title";
+  title.textContent = trigger.dataset.receiptName || "Receipt";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "modal-close";
+  close.setAttribute("aria-label", "Close receipt preview");
+  close.textContent = "×";
+  const content = document.createElement(type === "application/pdf" ? "iframe" : "img");
+  content.className = "receipt-preview-content";
+  content.src = api.receipts.previewUrl(id);
+  content.title = title.textContent;
+  if (content.tagName === "IMG") content.alt = title.textContent;
+  const download = document.createElement("a");
+  download.className = "btn btn-secondary btn-sm";
+  download.href = api.receipts.fileUrl(id);
+  download.textContent = "Download original";
+  function dismiss() {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    underlying.inert = wasInert;
+    if (trigger.isConnected) trigger.focus();
+  }
+  function onKey(event) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      dismiss();
+    } else if (event.key === "Tab" &&
+        ((event.shiftKey && document.activeElement === close) ||
+         (!event.shiftKey && document.activeElement === download))) {
+      event.preventDefault();
+      (event.shiftKey ? download : close).focus();
+    }
+  }
+  close.addEventListener("click", dismiss);
+  overlay.addEventListener("click", event => { if (event.target === overlay) dismiss(); });
+  document.addEventListener("keydown", onKey, true);
+  box.append(close, title, content, download);
+  overlay.append(box);
+  document.body.append(overlay);
+  underlying.inert = true;
+  close.focus();
+}
+
 function attachReceiptDeleteListeners(expenseId) {
+  document.getElementById("receipt-grid")?.querySelectorAll("[data-receipt-preview]").forEach(btn => {
+    btn.addEventListener("click", () => showReceiptPreview(btn));
+  });
   document.getElementById("receipt-grid")?.querySelectorAll("[data-receipt-del]").forEach(btn => {
     btn.addEventListener("click", async () => {
       const rid = parseInt(btn.dataset.receiptDel);

@@ -10,6 +10,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 
+@pytest.fixture(autouse=True)
+def no_native_warmup(monkeypatch):
+    from backend import ocr
+    monkeypatch.setattr(ocr, "start_image_warmup", lambda: False)
+    monkeypatch.setattr(ocr, "stop_image_warmup", lambda: None)
+
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     # Redirect DB + receipts to a temp location so tests never touch real data.

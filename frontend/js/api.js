@@ -53,6 +53,7 @@ export const api = {
   receipts: {
     remove:  (id) => del(`/receipts/${id}`),
     fileUrl: (id) => `${BASE}/receipts/${id}/file`,
+    previewUrl: (id) => `${BASE}/receipts/${id}/file?preview=true`,
     analyze: (formData) => post("/receipts/analyze", formData, true),
   },
   reimbursements: {

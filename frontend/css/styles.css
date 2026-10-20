@@ -303,6 +303,13 @@ input.field-autofilled, select.field-autofilled {
 }
 .receipt-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .receipt-thumb .pdf-icon { font-size: 28px; }
+.receipt-preview-overlay { z-index: 1100; }
+.receipt-preview-box { max-width: 1000px; }
+.receipt-preview-box .modal-title { padding-right: 24px; overflow-wrap: anywhere; }
+.receipt-preview-content {
+  display: block; width: 100%; height: 65vh; margin-bottom: 16px;
+  object-fit: contain; border: 0; background: var(--surface2);
+}
 .receipt-del {
   position: absolute; top: -6px; right: -6px;
   background: var(--red); color: #fff; border: none;

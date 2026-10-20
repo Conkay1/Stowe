@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from backend.db import init_db
+from backend import ocr
 from backend.routers import accounts, expenses, reimbursements, categories, corrections, system
 
 
@@ -37,7 +38,11 @@ async def lifespan(app: FastAPI):
     # run.py also calls init_db() before the server starts, but doing it here
     # makes the app self-bootstrapping under any ASGI runner. init_db() is idempotent.
     init_db()
-    yield
+    ocr.start_image_warmup()
+    try:
+        yield
+    finally:
+        ocr.stop_image_warmup()
 
 
 # Swagger and ReDoc load scripts from public CDNs. Nothing in the app reads
