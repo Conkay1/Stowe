@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import tempfile
+import unicodedata
 import uuid
 import zipfile
 from datetime import date
@@ -40,6 +41,30 @@ ALLOWED_RECEIPT_MIMES = {
     "application/pdf",
 }
 ALLOWED_RECEIPT_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".pdf"}
+# Spreadsheet apps treat a leading character in this set as a formula.
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _display_filename(name: str) -> str:
+    """Receipt label stored for display and export.
+
+    Control characters and path separators are removed. The extension allowlist
+    is applied to the raw upload name before this runs, so cleanup cannot change
+    which final suffix is accepted.
+    """
+    cleaned = "".join(
+        ch for ch in name
+        if ch not in "/\\" and unicodedata.category(ch) != "Cc"
+    )
+    return cleaned or "receipt"
+
+
+def _csv_safe(value) -> str:
+    """Prefix formula-like cells so spreadsheet apps import them as text."""
+    text = "" if value is None else str(value)
+    if text.startswith(_CSV_FORMULA_PREFIXES):
+        return "'" + text
+    return text
 
 
 def _coverage_map(db: Session, expense_ids: list[int]) -> dict[int, tuple[float, int]]:
@@ -95,14 +120,16 @@ def _to_expense_out(e: HSAExpense, coverage: dict[int, tuple[float, int]]) -> Ex
 
 
 def _read_validated_upload(file: UploadFile, content: bytes) -> tuple[bytes, str, str]:
-    """Validate an upload's name / content-type / size. Returns (content, ext, original).
+    """Validate an upload's name / content-type / size.
 
+    Returns (content, ext, display_name). The extension comes from the raw
+    filename's final suffix. The returned name is the stored display label.
     Raises the same HTTPExceptions as the receipt upload path. `content` is passed
     in so the caller owns the (async) read — lets this be shared by both the
     persisting upload endpoint and the ephemeral analyze endpoint.
     """
-    original = file.filename or "receipt"
-    ext = Path(original).suffix.lower()
+    raw_name = file.filename or "receipt"
+    ext = Path(raw_name).suffix.lower()
     if ext not in ALLOWED_RECEIPT_EXTS:
         raise HTTPException(400, f"Unsupported file type. Allowed: {', '.join(sorted(ALLOWED_RECEIPT_EXTS))}")
     if file.content_type and file.content_type not in ALLOWED_RECEIPT_MIMES:
@@ -111,7 +138,7 @@ def _read_validated_upload(file: UploadFile, content: bytes) -> tuple[bytes, str
         raise HTTPException(413, f"Receipt exceeds {MAX_RECEIPT_BYTES // (1024 * 1024)} MB limit")
     if len(content) == 0:
         raise HTTPException(400, "Empty file")
-    return content, ext, original
+    return content, ext, _display_filename(raw_name)
 
 
 def _review_expense(db: Session, expense: HSAExpense) -> None:
@@ -473,16 +500,19 @@ def export_csv(year: Optional[int] = None, db: Session = Depends(get_db)):
         "Reimbursed", "Reimbursed Date", "Receipt Count", "Receipt Filenames", "Notes",
     ])
     for e in expenses:
+        filenames = "; ".join(
+            _csv_safe(r.original_filename or r.filename) for r in e.receipts
+        )
         writer.writerow([
-            e.date.isoformat(),
-            e.merchant,
-            e.category,
-            f"{e.amount:.2f}",
-            "Yes" if e.reimbursed else "No",
-            e.reimbursed_date.isoformat() if e.reimbursed_date else "",
-            len(e.receipts),
-            "; ".join(r.original_filename or r.filename for r in e.receipts),
-            (e.notes or "").replace("\n", " ").strip(),
+            _csv_safe(e.date.isoformat()),
+            _csv_safe(e.merchant),
+            _csv_safe(e.category),
+            _csv_safe(f"{e.amount:.2f}"),
+            _csv_safe("Yes" if e.reimbursed else "No"),
+            _csv_safe(e.reimbursed_date.isoformat() if e.reimbursed_date else ""),
+            _csv_safe(len(e.receipts)),
+            _csv_safe(filenames),
+            _csv_safe((e.notes or "").replace("\n", " ").strip()),
         ])
 
     buf.seek(0)
