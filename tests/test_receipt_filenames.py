@@ -207,7 +207,7 @@ def test_csv_export_neutralizes_formula_prefixes(client, ocr_reads):
         "date": "2026-03-03",
         "amount": 5,
         "category": "Pharmacy",
-        "notes": "plain",
+        "notes": "-plain",
     })
     assert negative.status_code == 201
     with db_module.SessionLocal() as session:
@@ -240,6 +240,9 @@ def test_csv_export_neutralizes_formula_prefixes(client, ocr_reads):
     third = by_date["2026-03-03"]
     assert third[1] == "Safe Clinic"
     assert third[2] == "Pharmacy"
-    assert third[3] == "'-5.00"
-    assert third[8] == "plain"
+    assert third[3] == "-5.00"
+    assert third[8] == "'-plain"
+    amount_line = next(line for line in exported.text.splitlines() if line.startswith("2026-03-03,"))
+    assert ",-5.00," in amount_line
+    assert "'-5.00" not in amount_line
     assert ocr_reads

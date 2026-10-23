@@ -507,7 +507,7 @@ def export_csv(year: Optional[int] = None, db: Session = Depends(get_db)):
             _csv_safe(e.date.isoformat()),
             _csv_safe(e.merchant),
             _csv_safe(e.category),
-            _csv_safe(f"{e.amount:.2f}"),
+            f"{e.amount:.2f}",
             _csv_safe("Yes" if e.reimbursed else "No"),
             _csv_safe(e.reimbursed_date.isoformat() if e.reimbursed_date else ""),
             _csv_safe(len(e.receipts)),
