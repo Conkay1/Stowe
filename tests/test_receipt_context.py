@@ -214,3 +214,66 @@ def test_existing_expense_review_suppresses_only_conflicting_hints(
     assert reviewed["auto_review"]["date"] == when
     assert reviewed["amount"] == 25.00
     assert reviewed["date"] == "2026-01-15"
+
+
+@pytest.mark.parametrize(("saved", "extracted", "expected"), [
+    (25.004, 25.00, 25.00),
+    (25.005, 25.00, None),
+    (2.675, 2.68, 2.68),
+    (2.685, 2.68, None),
+])
+def test_existing_expense_amount_comparison_uses_decimal_cents(
+    client, monkeypatch, saved, extracted, expected
+):
+    from backend import db as db_module, ocr
+    from backend.models import HSAExpense
+
+    monkeypatch.setattr(ocr, "extract_text", lambda _: (
+        f"Synthetic Clinic\nOffice visit\nTotal ${extracted:.2f}\n2026-01-15",
+        "pdf-text",
+    ))
+    expense = client.post("/api/v1/expenses", json={
+        "merchant": "Synthetic Clinic", "date": "2026-01-15", "amount": saved,
+    }).json()
+    with db_module.SessionLocal() as db:
+        db.get(HSAExpense, expense["id"]).amount = saved
+        db.commit()
+    before = client.get(f"/api/v1/expenses/{expense['id']}").json()
+    response = client.post(f"/api/v1/expenses/{expense['id']}/receipts", files={
+        "file": ("receipt.pdf", b"%PDF-synthetic", "application/pdf"),
+    })
+    assert response.status_code == 201
+    reviewed = client.get(f"/api/v1/expenses/{expense['id']}").json()
+    assert reviewed["amount"] == before["amount"]
+    with db_module.SessionLocal() as db:
+        assert db.get(HSAExpense, expense["id"]).amount == saved
+    assert reviewed["auto_review"]["amount"] == expected
+    assert reviewed["auto_review"]["date"] == "2026-01-15"
+    assert reviewed["auto_review_status"] == (
+        "needs_review" if expected is None else "eligible"
+    )
+
+
+def test_preview_keeps_unbound_hints_without_changing_existing_expense(
+    client, monkeypatch
+):
+    from backend import ocr
+
+    monkeypatch.setattr(ocr, "extract_text", lambda _: (
+        "Synthetic Clinic\nOffice visit\nGrand total $5000.00\nExported 2026-07-01",
+        "pdf-text",
+    ))
+    expense = client.post("/api/v1/expenses", json={
+        "merchant": "Synthetic Clinic", "date": "2026-01-15", "amount": 25.00,
+    }).json()
+    before = client.get("/api/v1/expenses").json()
+    response = client.post("/api/v1/receipts/analyze", files={
+        "file": ("history.pdf", b"%PDF-synthetic-history", "application/pdf"),
+    })
+    assert response.status_code == 200
+    preview = response.json()
+    assert preview["amount"] == 5000.00
+    assert preview["date"] == "2026-07-01"
+    assert preview["status"] == "eligible"
+    assert client.get("/api/v1/expenses").json() == before
+    assert client.get(f"/api/v1/expenses/{expense['id']}").json()["receipts"] == []
