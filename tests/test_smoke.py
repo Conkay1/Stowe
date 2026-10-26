@@ -472,7 +472,7 @@ def test_upload_triggers_auto_review(client, monkeypatch):
         ocr, "extract_text",
         lambda p: ("WALGREENS PHARMACY\nFLU SHOT $40.00\n05/01/2026", "vision"),
     )
-    expense = _make_expense(client)
+    expense = _make_expense(client, amount=40.00, date="2026-05-01")
     res = client.post(
         f"/api/v1/expenses/{expense['id']}/receipts",
         files={"file": ("r.png", io.BytesIO(b"\x89PNG\r\n\x1a\nxx"), "image/png")},
@@ -488,7 +488,7 @@ def test_upload_triggers_auto_review(client, monkeypatch):
 
 def test_reanalyze_endpoint(client, monkeypatch):
     from backend import ocr
-    expense = _make_expense(client)
+    expense = _make_expense(client, amount=120.00, date="2026-04-04")
 
     # First upload yields no readable text → not_analyzed.
     monkeypatch.setattr(ocr, "extract_text", lambda p: ("", "none"))
@@ -1069,7 +1069,7 @@ def test_default_bind_host_is_loopback(tmp_path, monkeypatch):
     """Start uvicorn with main:app on BIND_HOST and a free port.
 
     A connection to 127.0.0.1 succeeds. A connection to another local IPv4
-    address is refused. Skips if the machine has no non-loopback IPv4.
+    address fails. Skips if the machine has no non-loopback IPv4.
     """
     import socket
     import threading
@@ -1105,7 +1105,8 @@ def test_default_bind_host_is_loopback(tmp_path, monkeypatch):
             time.sleep(0.05)
         assert server.started, "uvicorn did not start listening"
 
-        port = server.servers[0].sockets[0].getsockname()[1]
+        address, port = server.servers[0].sockets[0].getsockname()[:2]
+        assert address == BIND_HOST
 
         connected = False
         connect_deadline = time.monotonic() + 5
@@ -1120,7 +1121,7 @@ def test_default_bind_host_is_loopback(tmp_path, monkeypatch):
                 time.sleep(0.05)
         assert connected, last_error
 
-        with pytest.raises(ConnectionRefusedError):
+        with pytest.raises((ConnectionRefusedError, TimeoutError)):
             socket.create_connection((lan_ip, port), timeout=2)
     finally:
         server.should_exit = True

@@ -1,5 +1,6 @@
 import { api } from "../api.js";
 import { state, toast, openModal, closeModal } from "../app.js";
+import { hasPendingCorrection, showCorrectionModal } from "../corrections.js";
 
 const fmt = n => "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -21,7 +22,7 @@ function eligBadge(status, notes) {
 let currentFilter = "unreimbursed";
 let allExpenses = [];
 
-export async function render(container) {
+export async function render(container, params = []) {
   container.innerHTML = `
     <div id="vault-hero-wrap"></div>
     <div id="completeness-wrap"></div>
@@ -48,6 +49,7 @@ export async function render(container) {
   });
 
   await loadAll();
+  if (params[0] && /^\d+$/.test(params[0])) await showManageModal(Number(params[0]));
 }
 
 async function loadAll() {
@@ -109,8 +111,14 @@ function renderHero(s, accounts = []) {
         </div>
       </div>
       ${hsaFooter}
+      ${s.total_overcovered > 0 ? `<div class="correction-box correction-warning"><strong>${fmt(s.total_overcovered)} needs reconciliation</strong><p>Recorded coverage exceeds corrected expense costs. <button type="button" id="show-correction-issues" class="btn btn-secondary btn-sm">Review expenses</button></p></div>` : ""}
     </div>
   `;
+  document.getElementById("show-correction-issues")?.addEventListener("click", () => {
+    currentFilter = "all";
+    document.querySelectorAll(".filter-tab").forEach(button => button.classList.toggle("active", button.dataset.filter === "all"));
+    renderList();
+  });
 
   if (!document.getElementById("vault-hsa-footer-style")) {
     const st = document.createElement("style");
@@ -202,7 +210,9 @@ function renderList() {
     const remaining = e.remaining_amount ?? e.amount;
     const partial = !e.reimbursed && covered > 0.005;
 
-    const statusBadge = e.reimbursed
+    const statusBadge = e.reconciliation_required
+      ? `<span class="badge badge-needs-review">${fmt(e.overcovered_amount)} needs reconciliation</span>`
+      : e.reimbursed
       ? `<span class="badge badge-reimbursed">Reimbursed</span>`
       : `<span class="badge badge-unreimbursed">In Vault</span>`;
     const receiptBadge = `<span class="badge badge-receipt" data-manage="${e.id}">📎 ${e.receipts.length}</span>`;
@@ -271,8 +281,10 @@ function renderList() {
 }
 
 async function showManageModal(id) {
-  const expense = await api.expenses.get(id);
+  const [expense, history] = await Promise.all([api.expenses.get(id), api.expenses.corrections(id)]);
   const cats = state.categories;
+  const hasHistory = expense.pull_count > 0 || expense.reimbursed || expense.reimbursed_date || history.length > 0;
+  const manualOnly = !expense.pull_count && (expense.reimbursed || expense.reimbursed_date);
 
   openModal(`
     <div class="modal-title">Manage Expense</div>
@@ -290,7 +302,7 @@ async function showManageModal(id) {
       <div class="form-row">
         <div class="form-group">
           <label>Amount ($)</label>
-          <input type="number" step="0.01" name="amount" value="${esc(String(expense.amount))}" required>
+          <input type="number" step="0.01" name="amount" value="${esc(String(expense.amount))}" ${hasHistory ? "readonly" : ""} required>
         </div>
         <div class="form-group">
           <label>Category</label>
@@ -299,6 +311,11 @@ async function showManageModal(id) {
           </select>
         </div>
       </div>
+      <div class="correction-actions">
+        <button type="button" id="correct-cost-btn" class="btn btn-secondary" ${manualOnly ? "disabled" : ""}>${hasPendingCorrection(id) ? "Verify pending correction" : "Correct cost…"}</button>
+      </div>
+      ${manualOnly ? `<p class="text-muted correction-help">Reconcile the actual withdrawal into verified pull coverage before correcting a manually marked reimbursement.</p>` : ""}
+      ${expense.reconciliation_required ? `<p class="correction-box correction-warning">${fmt(expense.overcovered_amount)} of recorded coverage exceeds the corrected cost. The withdrawal still needs reconciliation.</p>` : ""}
       <div class="form-group">
         <label>Notes</label>
         <textarea name="notes" rows="2">${esc(expense.notes || "")}</textarea>
@@ -311,7 +328,7 @@ async function showManageModal(id) {
             <span style="font-size:13px">${fmt(expense.covered_amount)} of ${fmt(expense.amount)} pulled across ${expense.pull_count} pull${expense.pull_count !== 1 ? "s" : ""}</span>
           </div>
           <p class="text-muted" style="font-size:12px;margin-top:6px">
-            <a href="#/pulls">View pulls →</a> &nbsp;·&nbsp; To unmark, undo the relevant pull(s).
+            <a href="#/pulls">View pulls →</a> &nbsp;·&nbsp; ${history.length ? "Pulls supporting a correction remain in the history." : "To unmark, undo the relevant pull(s)."}
           </p>
         </div>
       ` : `
@@ -328,9 +345,13 @@ async function showManageModal(id) {
       `}
       <div style="display:flex;gap:8px;margin-bottom:20px">
         <button type="submit" class="btn btn-primary">Save Changes</button>
-        <button type="button" id="delete-btn" class="btn btn-danger">Delete</button>
+        <button type="button" id="delete-btn" class="btn btn-danger" ${hasHistory ? "disabled" : ""}>Delete</button>
       </div>
     </form>
+    ${history.length ? `<details class="correction-history"><summary>Correction history (${history.length})</summary>${history.slice().reverse().map(item => {
+      const timestamp = /Z$|[+-]\d{2}:\d{2}$/.test(item.created_at) ? item.created_at : item.created_at + "Z";
+      return `<div class="correction-box"><strong>${fmt(item.before.expense.amount)} → ${fmt(item.after.expense.amount)}</strong><p class="text-muted">${esc(new Date(timestamp).toLocaleString())}</p><p class="correction-reason">${esc(item.reason)}</p></div>`;
+    }).join("")}</details>` : ""}
     <hr class="divider">
     <div class="modal-title" style="margin-bottom:8px">Receipts (${expense.receipts.length})</div>
     <div class="receipt-grid" id="receipt-grid">${renderReceiptGrid(expense.receipts)}</div>
@@ -344,6 +365,13 @@ async function showManageModal(id) {
     <hr class="divider">
     <div id="review-section">${renderReviewSection(expense)}</div>
   `);
+
+  document.getElementById("correct-cost-btn").addEventListener("click", () => {
+    showCorrectionModal(expense, async reopen => {
+      if (document.getElementById("vault-hero-wrap")) await loadAll();
+      if (reopen) await showManageModal(id);
+    });
+  });
 
   // Toggle reimbursement date — only present when the expense isn't part of a pull
   const reimbCheck = document.getElementById("reimb-check");
@@ -360,10 +388,10 @@ async function showManageModal(id) {
     const body = {
       merchant: fd.get("merchant"),
       date: fd.get("date"),
-      amount: parseFloat(fd.get("amount")),
       category: fd.get("category"),
       notes: fd.get("notes") || null,
     };
+    if (!hasHistory) body.amount = parseFloat(fd.get("amount"));
     // Reimbursement toggle is only editable when there's no pull-backed coverage.
     if ((expense.covered_amount ?? 0) <= 0.005) {
       body.reimbursed = fd.get("reimbursed") === "on";
@@ -475,24 +503,96 @@ function attachReanalyze(expenseId) {
   });
 }
 
+const previewTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"]);
+
 function renderReceiptGrid(receipts) {
   if (receipts.length === 0) return `<span class="text-muted" style="font-size:13px">No receipts yet</span>`;
   return receipts.map(r => {
+    if (!Number.isSafeInteger(r.id) || r.id <= 0) return "";
     const url = api.receipts.fileUrl(r.id);
-    const isImage = r.file_type && r.file_type.startsWith("image/");
+    const canPreview = previewTypes.has(r.file_type);
+    const isImage = canPreview && r.file_type.startsWith("image/");
+    const name = esc(r.original_filename || "Receipt");
     const thumb = isImage
-      ? `<img src="${url}" alt="${r.original_filename}">`
+      ? `<img src="${url}" alt="${name}">`
       : `<span class="pdf-icon">📄</span>`;
+    const control = canPreview
+      ? `<button type="button" class="receipt-thumb" data-receipt-preview="${r.id}" data-receipt-type="${r.file_type}" data-receipt-name="${name}" aria-label="Preview ${name}">${thumb}</button>`
+      : `<a href="${url}" class="receipt-thumb" aria-label="Download ${name}">${thumb}</a>`;
     return `
       <div class="receipt-item">
-        <a href="${url}" target="_blank" class="receipt-thumb">${thumb}</a>
+        ${control}
         <button class="receipt-del" data-receipt-del="${r.id}" title="Delete receipt">×</button>
       </div>
     `;
   }).join("");
 }
 
+function showReceiptPreview(trigger) {
+  const id = Number(trigger.dataset.receiptPreview);
+  const type = trigger.dataset.receiptType;
+  if (!Number.isSafeInteger(id) || id <= 0 || !previewTypes.has(type)) return;
+  if (document.getElementById("receipt-preview")) return;
+  const underlying = document.getElementById("modal-overlay");
+  const wasInert = underlying.inert;
+  const overlay = document.createElement("div");
+  overlay.id = "receipt-preview";
+  overlay.className = "modal-overlay receipt-preview-overlay";
+  const box = document.createElement("div");
+  box.className = "modal-box receipt-preview-box";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
+  box.setAttribute("aria-labelledby", "receipt-preview-title");
+  const title = document.createElement("h2");
+  title.id = "receipt-preview-title";
+  title.className = "modal-title";
+  title.textContent = trigger.dataset.receiptName || "Receipt";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "modal-close";
+  close.setAttribute("aria-label", "Close receipt preview");
+  close.textContent = "×";
+  const content = document.createElement(type === "application/pdf" ? "iframe" : "img");
+  content.className = "receipt-preview-content";
+  content.src = api.receipts.previewUrl(id);
+  content.title = title.textContent;
+  if (content.tagName === "IMG") content.alt = title.textContent;
+  const download = document.createElement("a");
+  download.className = "btn btn-secondary btn-sm";
+  download.href = api.receipts.fileUrl(id);
+  download.textContent = "Download original";
+  function dismiss() {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    underlying.inert = wasInert;
+    if (trigger.isConnected) trigger.focus();
+  }
+  function onKey(event) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      dismiss();
+    } else if (event.key === "Tab" &&
+        ((event.shiftKey && document.activeElement === close) ||
+         (!event.shiftKey && document.activeElement === download))) {
+      event.preventDefault();
+      (event.shiftKey ? download : close).focus();
+    }
+  }
+  close.addEventListener("click", dismiss);
+  overlay.addEventListener("click", event => { if (event.target === overlay) dismiss(); });
+  document.addEventListener("keydown", onKey, true);
+  box.append(close, title, content, download);
+  overlay.append(box);
+  document.body.append(overlay);
+  underlying.inert = true;
+  close.focus();
+}
+
 function attachReceiptDeleteListeners(expenseId) {
+  document.getElementById("receipt-grid")?.querySelectorAll("[data-receipt-preview]").forEach(btn => {
+    btn.addEventListener("click", () => showReceiptPreview(btn));
+  });
   document.getElementById("receipt-grid")?.querySelectorAll("[data-receipt-del]").forEach(btn => {
     btn.addEventListener("click", async () => {
       const rid = parseInt(btn.dataset.receiptDel);

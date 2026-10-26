@@ -1,5 +1,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import OperationalError
+from fastapi import HTTPException
 from config import (
     DATA_DIR,
     DATABASE_PATH,
@@ -22,6 +24,16 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def begin_financial_write(db):
+    try:
+        db.execute(text("BEGIN IMMEDIATE"))
+    except OperationalError as exc:
+        db.rollback()
+        if (getattr(exc.orig, "sqlite_errorcode", 0) & 255) in (5, 6):
+            raise HTTPException(409, "Another financial change is in progress. Refresh and retry.") from exc
+        raise
 
 
 def _migrate(bind):

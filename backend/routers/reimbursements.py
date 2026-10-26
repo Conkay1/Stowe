@@ -5,8 +5,10 @@ from sqlalchemy import func
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend.db import get_db
+from backend.corrections import has_corrections
+from backend.db import begin_financial_write, get_db
 from backend.models import HSAAccount, HSAExpense, Reimbursement, ReimbursementLineItem
+from backend.money import cents
 from backend.schemas import (
     DistributionOut,
     PullLineItemOut,
@@ -33,7 +35,7 @@ def _existing_covered(db: Session, expense_id: int, exclude_pull_id: Optional[in
 def _recompute_expense_state(db: Session, expense_id: int, *, was_pull_backed: bool = False) -> None:
     """Set `reimbursed` / `reimbursed_date` based on this expense's line items.
 
-    - If line items fully cover the expense (within 1¢), mark reimbursed and use the latest pull date.
+    - If line items fully cover the expense, mark reimbursed and use the latest pull date.
     - If line items exist but partial, mark not-reimbursed.
     - If no line items remain and `was_pull_backed=True` (i.e. caller just removed coverage),
       clear the flags so the expense returns to the vault.
@@ -54,8 +56,8 @@ def _recompute_expense_state(db: Session, expense_id: int, *, was_pull_backed: b
         expense.reimbursement_id = None
         return
 
-    total_covered = sum(li.covered_amount for li in line_items)
-    if total_covered + 0.01 >= expense.amount:
+    total_covered = sum(cents(li.covered_amount) for li in line_items)
+    if total_covered >= cents(expense.amount):
         expense.reimbursed = True
         expense.reimbursed_date = max(li.reimbursement.date for li in line_items)
         most_recent = max(line_items, key=lambda li: li.reimbursement.date)
@@ -77,17 +79,25 @@ def _line_item_out(li: ReimbursementLineItem) -> PullLineItemOut:
         date=e.date,
         category=e.category,
         receipt_count=len(e.receipts),
+        overcovered_amount=max(sum(cents(item.covered_amount) for item in e.line_items) - cents(e.amount), 0) / 100,
     )
 
 
 def _to_list_item(pull: Reimbursement) -> ReimbursementListItem:
+    allocated = sum(cents(li.covered_amount) for li in pull.line_items)
+    difference = cents(pull.distribution.amount) - cents(pull.total_amount) if pull.distribution else None
+    excess = any(sum(cents(item.covered_amount) for item in li.expense.line_items) > cents(li.expense.amount) for li in pull.line_items)
     return ReimbursementListItem(
         id=pull.id,
         date=pull.date,
         reference=pull.reference,
         notes=pull.notes,
         expense_count=len(pull.line_items),
-        total_amount=round(sum(li.covered_amount for li in pull.line_items), 2),
+        total_amount=cents(pull.total_amount) / 100,
+        allocated_amount=allocated / 100,
+        allocation_difference=(cents(pull.total_amount) - allocated) / 100,
+        amount_difference=difference / 100 if difference is not None else None,
+        reconciliation_required=bool(difference or cents(pull.total_amount) - allocated or excess),
         account_id=pull.account_id,
         account_name=pull.account.name if pull.account else None,
         created_at=pull.created_at,
@@ -103,6 +113,7 @@ def _to_full(pull: Reimbursement) -> ReimbursementOut:
             for li in sorted(pull.line_items, key=lambda li: li.expense.date, reverse=True)
         ],
         distribution=DistributionOut.model_validate(pull.distribution) if pull.distribution else None,
+        has_corrections=any(li.expense.corrections for li in pull.line_items),
     )
 
 
@@ -110,6 +121,7 @@ def _to_full(pull: Reimbursement) -> ReimbursementOut:
 
 @router.post("/reimbursements", response_model=ReimbursementOut, status_code=201)
 def create_reimbursement(body: ReimbursementCreate, db: Session = Depends(get_db)):
+    begin_financial_write(db)
     expense_ids = [li.expense_id for li in body.line_items]
 
     expenses = (
@@ -123,7 +135,6 @@ def create_reimbursement(body: ReimbursementCreate, db: Session = Depends(get_db
     if missing:
         raise HTTPException(400, f"Unknown expense ID(s): {missing}")
 
-    # Per-expense overflow check: existing covered + new covered <= amount + 1¢.
     overflows: list[str] = []
     manually_reimbursed: list[int] = []
     for li in body.line_items:
@@ -133,7 +144,7 @@ def create_reimbursement(body: ReimbursementCreate, db: Session = Depends(get_db
             # Manually marked reimbursed without any pull backing — block.
             manually_reimbursed.append(e.id)
             continue
-        if existing + li.covered_amount > e.amount + 0.01:
+        if cents(existing) + cents(li.covered_amount) > cents(e.amount):
             remaining = round(max(e.amount - existing, 0), 2)
             overflows.append(
                 f"expense {e.id} ({e.merchant}): only ${remaining:.2f} remaining, "
@@ -216,11 +227,14 @@ def update_reimbursement(pull_id: int, body: ReimbursementUpdate, db: Session = 
 
 @router.delete("/reimbursements/{pull_id}", status_code=204)
 def delete_reimbursement(pull_id: int, db: Session = Depends(get_db)):
+    begin_financial_write(db)
     pull = db.get(Reimbursement, pull_id)
     if not pull:
         raise HTTPException(404, "Pull not found")
 
     affected_expense_ids = [li.expense_id for li in pull.line_items]
+    if any(has_corrections(db, eid) for eid in affected_expense_ids):
+        raise HTTPException(409, "This pull supports an audited expense correction and cannot be undone.")
 
     db.delete(pull)  # cascades to line items
     db.flush()
