@@ -122,7 +122,40 @@ def test_frozen_macos_resolves_to_migrated_dir(tmp_path, monkeypatch):
     assert (support / "Stowe" / "database" / "stowe.db").exists()
 
 
-def test_windows_data_dir_name_unchanged(tmp_path, monkeypatch):
+def test_windows_data_dir_is_wellslip_desktop(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "name", "nt")
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local"))
-    assert config._user_data_dir().name == "Stowe"
+    assert config._user_data_dir() == tmp_path / "Local" / "Wellslip Desktop"
+    assert config._legacy_stowe_data_dir() == tmp_path / "Local" / "Stowe"
+
+
+def test_frozen_windows_copies_localappdata_stowe(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(os, "name", "nt")
+    local = tmp_path / "Local"
+    monkeypatch.setenv("LOCALAPPDATA", str(local))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
+    _seed(local / "Stowe")
+    before = _snapshot(local / "Stowe")
+
+    resolved = config._resolve_data_dir()
+
+    assert resolved == local / "Wellslip Desktop"
+    assert (resolved / "database" / "stowe.db").read_bytes() == b"SQLite ledger"
+    assert _snapshot(local / "Stowe") == before
+
+
+def test_frozen_windows_existing_new_dir_skips(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(os, "name", "nt")
+    local = tmp_path / "Local"
+    monkeypatch.setenv("LOCALAPPDATA", str(local))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
+    _seed(local / "Stowe")
+    (local / "Wellslip Desktop" / "database").mkdir(parents=True)
+    (local / "Wellslip Desktop" / "database" / "wellslip.db").write_bytes(b"new")
+
+    resolved = config._resolve_data_dir()
+
+    assert resolved == local / "Wellslip Desktop"
+    assert not (resolved / "database" / "stowe.db").exists()

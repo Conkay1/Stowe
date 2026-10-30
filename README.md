@@ -56,7 +56,7 @@ Wellslip Desktop 0.8.0 is available for macOS and Windows. You can also run it f
 2. Run the installer and follow the prompts. No administrator rights are required — Wellslip Desktop installs to `%LOCALAPPDATA%\Programs\Stowe\`.
 3. A Start Menu entry and an optional Desktop shortcut are created automatically.
 4. **Prerequisite:** Microsoft Edge WebView2 Runtime. It ships pre-installed with Windows 10 (version 1803 or later) and Windows 11. If needed, download it from [microsoft.com/edge/webview2](https://developer.microsoft.com/microsoft-edge/webview2/).
-5. Your data lives at `%LOCALAPPDATA%\Stowe\` (database + receipts). On first launch, an existing `%APPDATA%\Stowe\` folder is moved there automatically. To back up, copy `%LOCALAPPDATA%\Stowe\`.
+5. Your data lives at `%LOCALAPPDATA%\Wellslip Desktop\` (database + receipts). On first launch, an existing `%LOCALAPPDATA%\Stowe\` folder is copied there (an older `%APPDATA%\Stowe\` folder is moved to `%LOCALAPPDATA%\Stowe\` first). The Stowe folder is left in place. To back up, copy `%LOCALAPPDATA%\Wellslip Desktop\`.
 
 <!-- unsigned-windows: delete this note when the installer is code-signed -->
 
@@ -87,15 +87,16 @@ Versions before 0.8.0 accepted connections from other devices on the local netwo
 ## Where does my data live?
 
 **Packaged app (macOS):**
-- Database: `~/Library/Application Support/Wellslip Desktop/database/stowe.db`
+- Database: `~/Library/Application Support/Wellslip Desktop/database/wellslip.db`
 - Receipts: `~/Library/Application Support/Wellslip Desktop/receipts/`
 - Upgrading from Stowe: on first launch, if that folder is empty, the app copies `~/Library/Application Support/Stowe/` into it. The old Stowe folder is left untouched; delete it yourself once you're happy.
 
 **Packaged app (Windows):**
-- Database and receipts live at `%LOCALAPPDATA%\Stowe\`. On first launch, an existing `%APPDATA%\Stowe\` folder is moved there automatically.
+- Database: `%LOCALAPPDATA%\Wellslip Desktop\database\wellslip.db`; receipts in `%LOCALAPPDATA%\Wellslip Desktop\receipts\`.
+- Upgrading from Stowe: on first launch, if that folder is empty, the app copies `%LOCALAPPDATA%\Stowe\` into it and leaves the original untouched. An older `%APPDATA%\Stowe\` folder is moved to `%LOCALAPPDATA%\Stowe\` first.
 
 **From source:**
-- Database: `./database/stowe.db` (inside the project folder)
+- Database: `./database/wellslip.db` (inside the project folder). An existing `./database/stowe.db` is copied to the new name on first run and kept.
 - Receipts: `./receipts/`
 
 Filenames on disk are random UUIDs, so nothing about the original filename leaks through `ls`.

@@ -6,10 +6,11 @@ import sys
 from pathlib import Path
 
 APP_NAME = "Stowe"
-# macOS and Linux releases from the Wellslip rebrand on keep their data in a
-# Wellslip-named folder. Windows keeps %LOCALAPPDATA%\Stowe (same AppId, so
-# installs upgrade in place and the data folder does not move).
+# Releases from the Wellslip rebrand on keep their data in a Wellslip-named
+# folder on every platform. The first launch copies the old Stowe folder.
 NEW_APP_NAME = "Wellslip Desktop"
+DATABASE_FILENAME = "wellslip.db"
+LEGACY_DATABASE_FILENAME = "stowe.db"
 BASE_DIR = Path(__file__).parent
 logger = logging.getLogger("stowe.config")
 
@@ -33,7 +34,7 @@ def _user_data_dir() -> Path:
         local = os.environ.get("LOCALAPPDATA") or str(
             _os_path(os.path.expanduser("~")) / "AppData" / "Local"
         )
-        return _os_path(local) / APP_NAME
+        return _os_path(local) / NEW_APP_NAME
     if sys.platform == "darwin":
         return Path.home() / "Library" / "Application Support" / NEW_APP_NAME
     xdg = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
@@ -42,6 +43,11 @@ def _user_data_dir() -> Path:
 
 def _legacy_stowe_data_dir() -> Path:
     """Data folder used by Stowe (bundle ID com.stowe.app) before the rebrand."""
+    if os.name == "nt":
+        local = os.environ.get("LOCALAPPDATA") or str(
+            _os_path(os.path.expanduser("~")) / "AppData" / "Local"
+        )
+        return _os_path(local) / APP_NAME
     if sys.platform == "darwin":
         return Path.home() / "Library" / "Application Support" / APP_NAME
     xdg = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
@@ -236,7 +242,10 @@ def _resolve_data_dir() -> Path:
         return BASE_DIR
     data_dir = _user_data_dir()
     if os.name == "nt":
-        return migrate_roaming_data_dir(data_dir)
+        # Older builds used %APPDATA%\Stowe; move that to %LOCALAPPDATA%\Stowe
+        # first, then copy Stowe's folder into %LOCALAPPDATA%\Wellslip Desktop.
+        legacy = migrate_roaming_data_dir(_legacy_stowe_data_dir())
+        return migrate_stowe_data_dir(data_dir, legacy)
     return migrate_stowe_data_dir(data_dir)
 
 
@@ -272,13 +281,62 @@ def restrict_private_file(path: Path) -> None:
         logger.warning("Could not set permissions 0o600 on %s: %s", path, exc)
 
 
+_SQLITE_SIDECARS = ("", "-wal", "-shm", "-journal")
+
+
+def resolve_database_path(db_dir: Path) -> Path:
+    """Return the database file to open in ``db_dir``.
+
+    Uses ``wellslip.db``. If it is missing and a Stowe-era ``stowe.db`` exists,
+    copies ``stowe.db`` (and any SQLite -wal/-shm/-journal sidecars) to the new
+    name first and leaves the originals in place. If that copy fails, the app
+    falls back to reading ``stowe.db`` so no data is hidden. An existing
+    ``wellslip.db`` is never overwritten.
+    """
+    new = db_dir / DATABASE_FILENAME
+    old = db_dir / LEGACY_DATABASE_FILENAME
+    if new.exists() or not old.is_file():
+        return new
+    staged = []
+    try:
+        for suffix in _SQLITE_SIDECARS:
+            src = db_dir / f"{LEGACY_DATABASE_FILENAME}{suffix}"
+            if not src.is_file():
+                continue
+            tmp = db_dir / f".{DATABASE_FILENAME}{suffix}.migrating"
+            shutil.copy2(src, tmp)
+            staged.append((tmp, db_dir / f"{DATABASE_FILENAME}{suffix}"))
+        # Sidecars first, main file last: wellslip.db appears only when complete.
+        for tmp, dst in reversed(staged):
+            os.replace(tmp, dst)
+    except Exception as exc:
+        logger.error(
+            "Could not copy %s to %s (%s); reading the Stowe database in place",
+            old,
+            new,
+            exc,
+        )
+        for tmp, dst in staged:
+            for leftover in (tmp, dst):
+                try:
+                    if leftover.exists() and leftover != new:
+                        leftover.unlink()
+                except OSError:
+                    pass
+        if new.exists():
+            return new
+        return old
+    logger.info("Copied %s to %s; original left in place", old, new)
+    return new
+
+
 # When packaged with PyInstaller, write user data to a platform-standard
-# writable location instead of inside the read-only .app bundle. On Windows
-# that is %LOCALAPPDATA%\Stowe; a legacy %APPDATA%\Stowe folder is migrated
-# the first time the frozen app starts.
+# writable location instead of inside the read-only .app bundle: a
+# "Wellslip Desktop" folder (see _user_data_dir). Stowe-era folders and the
+# stowe.db file are copied to the new names on first launch.
 DATA_DIR = _resolve_data_dir()
 
-DATABASE_PATH = DATA_DIR / "database" / "stowe.db"
+DATABASE_PATH = resolve_database_path(DATA_DIR / "database")
 RECEIPTS_DIR = DATA_DIR / "receipts"
 DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 

@@ -22,7 +22,7 @@ def test_windows_path_uses_localappdata_not_roaming(monkeypatch, tmp_path):
     monkeypatch.setenv("LOCALAPPDATA", str(local))
     monkeypatch.setenv("APPDATA", str(roaming))
 
-    assert config._user_data_dir() == local / "Stowe"
+    assert config._user_data_dir() == local / "Wellslip Desktop"
 
 
 def test_windows_path_falls_back_when_localappdata_unset(monkeypatch):
@@ -31,7 +31,7 @@ def test_windows_path_falls_back_when_localappdata_unset(monkeypatch):
     monkeypatch.setenv("APPDATA", "/tmp/roaming-should-not-be-used")
 
     assert config._user_data_dir() == (
-        PosixPath(os.path.expanduser("~")) / "AppData" / "Local" / "Stowe"
+        PosixPath(os.path.expanduser("~")) / "AppData" / "Local" / "Wellslip Desktop"
     )
 
 
@@ -73,10 +73,12 @@ def test_frozen_windows_migrates_roaming_dir_on_resolve(monkeypatch, tmp_path):
 
     resolved = config._resolve_data_dir()
 
-    assert resolved == local / "Stowe"
+    assert resolved == local / "Wellslip Desktop"
     assert (resolved / "database" / "stowe.db").read_text() == "ledger"
     assert (resolved / "receipts" / "scan.png").read_bytes() == b"png"
     assert not (roaming / "Stowe").exists()
+    # The Stowe folder moved out of Roaming is kept as the untouched original.
+    assert (local / "Stowe" / "database" / "stowe.db").read_text() == "ledger"
 
 
 def test_migrate_moves_legacy_tree(tmp_path, caplog):
