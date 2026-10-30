@@ -1,12 +1,16 @@
-# Stowe
+# Wellslip Desktop
+
+_Formerly **Stowe**._
 
 **A personal, local-only tracker for your HSA receipts and expenses.**
 
 [stowe.health](https://stowe.health) · [Releases](https://github.com/Conkay1/Stowe/releases) · MIT License
 
-Stowe is a small desktop app for people who pay medical bills out-of-pocket with an HSA and want to defer reimbursement until later — possibly years later. The IRS lets you do this, but only if you can still produce the receipts when you pull the money out. That's what Stowe keeps track of.
+Wellslip Desktop is a small desktop app for people who pay medical bills out-of-pocket with an HSA and want to defer reimbursement until later — possibly years later. The IRS lets you do this, but only if you can still produce the receipts when you pull the money out. That's what Wellslip Desktop keeps track of.
 
-Your data lives on your computer. Nothing you store is sent to a server. The app listens on localhost (127.0.0.1) only, and interface assets, including the chart library, are bundled with it. No Stowe account. No cloud. No telemetry.
+Wellslip Desktop is part of the Wellslip family: **Wellslip Mobile** captures receipts on your phone, and **Wellslip Sync** is the optional paid, end-to-end encrypted sync between them. Wellslip Desktop works fully on its own.
+
+Your data lives on your computer. Nothing you store is sent to a server. The app listens on localhost (127.0.0.1) only, and interface assets, including the chart library, are bundled with it. No account. No cloud. No telemetry.
 
 ---
 
@@ -14,7 +18,7 @@ Your data lives on your computer. Nothing you store is sent to a server. The app
 
 The standard HSA-optimization move is to pay medical expenses from a checking account, let the HSA grow tax-free, and reimburse yourself years or decades later. To do it safely you need receipts — every single one — matched to every expense, for as long as you might want to withdraw.
 
-Existing apps in this space are SaaS products that ask you to upload medical receipts to someone else's servers. Stowe is the opposite: a single-file SQLite database and a folder of receipts, both living on your machine, with a clean local web UI on top.
+Existing apps in this space are SaaS products that ask you to upload medical receipts to someone else's servers. Wellslip Desktop is the opposite: a single-file SQLite database and a folder of receipts, both living on your machine, with a clean local web UI on top.
 
 ---
 
@@ -38,18 +42,18 @@ Existing apps in this space are SaaS products that ask you to upload medical rec
 
 ## Install
 
-Stowe 0.8.0 is available for macOS and Windows. You can also run it from source.
+Wellslip Desktop 0.8.0 is available for macOS and Windows. You can also run it from source.
 
 ### macOS
 
 1. Download [`Stowe-0.8.0.dmg`](https://github.com/Conkay1/Stowe/releases/download/v0.8.0/Stowe-0.8.0.dmg).
-2. Open the DMG and drag **Stowe** into **Applications**.
-3. Open **Stowe** from Applications. The build is signed with a Developer ID and notarized by Apple, so it launches normally — no Gatekeeper bypass needed.
+2. Open the DMG and drag **Wellslip Desktop** into **Applications**.
+3. Open **Wellslip Desktop** from Applications. The build is signed with a Developer ID and notarized by Apple, so it launches normally — no Gatekeeper bypass needed.
 
 ### Windows
 
 1. Download [`Stowe-0.8.0-windows-setup.exe`](https://github.com/Conkay1/Stowe/releases/download/v0.8.0/Stowe-0.8.0-windows-setup.exe).
-2. Run the installer and follow the prompts. No administrator rights are required — Stowe installs to `%LOCALAPPDATA%\Programs\Stowe\`.
+2. Run the installer and follow the prompts. No administrator rights are required — Wellslip Desktop installs to `%LOCALAPPDATA%\Programs\Stowe\`.
 3. A Start Menu entry and an optional Desktop shortcut are created automatically.
 4. **Prerequisite:** Microsoft Edge WebView2 Runtime. It ships pre-installed with Windows 10 (version 1803 or later) and Windows 11. If needed, download it from [microsoft.com/edge/webview2](https://developer.microsoft.com/microsoft-edge/webview2/).
 5. Your data lives at `%LOCALAPPDATA%\Stowe\` (database + receipts). On first launch, an existing `%APPDATA%\Stowe\` folder is moved there automatically. To back up, copy `%LOCALAPPDATA%\Stowe\`.
@@ -74,7 +78,7 @@ python3 run.py
 
 ### Localhost only
 
-Stowe listens on `127.0.0.1` only. Other devices on your network, including a phone on the same Wi-Fi, cannot open the app or its export API.
+Wellslip Desktop listens on `127.0.0.1` only. Other devices on your network, including a phone on the same Wi-Fi, cannot open the app or its export API.
 
 Versions before 0.8.0 accepted connections from other devices on the local network and loaded the chart library from a CDN. Update to 0.8.0 on macOS and Windows.
 
@@ -95,7 +99,7 @@ Versions before 0.8.0 accepted connections from other devices on the local netwo
 
 Filenames on disk are random UUIDs, so nothing about the original filename leaks through `ls`.
 
-**That's it.** No Stowe account. No cloud. No telemetry. To back up, copy those two paths. To migrate machines, copy them. To wipe everything, delete them.
+**That's it.** No account. No cloud. No telemetry. To back up, copy those two paths. To migrate machines, copy them. To wipe everything, delete them.
 
 If you want off-machine backups, drop the data dir inside iCloud Drive, Dropbox, or similar. The DB is a single SQLite file; receipts are opaque blobs. Both back up cleanly.
 
@@ -143,7 +147,7 @@ Issues and pull requests are welcome. This is a personal project that might stay
 
 ## Disclaimer
 
-Stowe is a record-keeping tool, not tax advice. Consult IRS Publication 969 and a tax professional for what qualifies as a reimbursable medical expense.
+Wellslip Desktop is a record-keeping tool, not tax advice. Consult IRS Publication 969 and a tax professional for what qualifies as a reimbursable medical expense.
 
 ---
 

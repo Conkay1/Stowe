@@ -1,6 +1,6 @@
 {
-  "name": "Stowe",
-  "short_name": "Stowe",
+  "name": "Wellslip Desktop",
+  "short_name": "Wellslip",
   "description": "Capture receipts and track your HSA expenses.",
   "start_url": "/",
   "display": "standalone",

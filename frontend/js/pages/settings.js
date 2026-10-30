@@ -68,7 +68,7 @@ async function renderView(container) {
       <div class="card" style="margin-bottom: 20px;">
         <h3>Data Folder</h3>
         <p class="text-muted" style="margin-bottom: 12px; font-size: 13px;">
-          Stowe stores all your data locally on this device. Your database, receipts, and exports live in the folder below.
+          Wellslip Desktop stores all your data locally on this device. Your database, receipts, and exports live in the folder below.
         </p>
         <div style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; word-break: break-all;">
           ${dataInfo.data_dir}

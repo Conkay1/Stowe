@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
 # Swagger and ReDoc load scripts from public CDNs. Nothing in the app reads
 # the schema, so those pages and /openapi.json stay unmounted.
 app = FastAPI(
-    title="Stowe",
+    title="Wellslip Desktop",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
