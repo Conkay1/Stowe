@@ -22,7 +22,7 @@ a GitHub Release.
 ## Unsigned builds
 
 If `DEVELOPER_ID` is unset, `scripts/build-macos.sh` prints a warning and
-still produces `dist/Stowe.app` and `Stowe-<version>.dmg`. Codesign,
+still produces `dist/Wellslip Desktop.app` and `Wellslip-Desktop-<version>.dmg`. Codesign,
 notarization, stapling, and the Gatekeeper `spctl` checks are skipped.
 
 Older versions of the script aborted immediately when `DEVELOPER_ID` was
@@ -180,8 +180,8 @@ Nested `.dylib`, `.so`, and `.framework` binaries are signed inside-out
 with `--options runtime --timestamp` and **no** entitlements. App
 entitlements on a nested library are a common notarization rejection.
 
-`assets/entitlements.plist` is passed only to `Contents/MacOS/Stowe` and
-the outer `Stowe.app`. The DMG is signed with the Developer ID and a
+`assets/entitlements.plist` is passed only to `Contents/MacOS/Wellslip Desktop` and
+the outer `Wellslip Desktop.app`. The DMG is signed with the Developer ID and a
 timestamp, then notarized and stapled separately.
 
 ## Common failure modes
@@ -206,16 +206,16 @@ The `submission-id` is printed by `notarytool submit`.
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `code object is not signed at all` during `codesign --verify`               | A nested file extension was missed by the find glob.                                   | Add the extension (or check for `.framework` bundles) in `scripts/build-macos.sh`.           |
 | Notary log: `The executable does not have the hardened runtime enabled.`    | Forgot `--options runtime` on at least one binary.                                     | Make sure every `codesign` call in the build script passes `--options runtime`.              |
-| Notary log: `The signature of the binary is invalid.`                       | Signed the outer `.app` before its inner binaries (Apple requires inside-out signing). | Re-run the deep-sign loop in the order the script defines: dylibs/sos → frameworks → MacOS/Stowe → outer .app. Entitlements are applied only on the last two. |
-| Notary log cites an entitlement on a `.dylib`, `.so`, or framework         | App entitlements were applied to a nested library.                                     | Nested Mach-O files are signed with `--options runtime --timestamp` only. Entitlements belong on `Contents/MacOS/Stowe` and the outer `.app`. |
-| App launches then immediately quits, Console shows `EXC_BAD_ACCESS (Code Signature Invalid)`. | Entitlements were not actually applied to the executable.                              | `codesign -d --entitlements :- /Applications/Stowe.app` should print the plist. If empty, re-sign. |
+| Notary log: `The signature of the binary is invalid.`                       | Signed the outer `.app` before its inner binaries (Apple requires inside-out signing). | Re-run the deep-sign loop in the order the script defines: dylibs/sos → frameworks → MacOS/Wellslip Desktop → outer .app. Entitlements are applied only on the last two. |
+| Notary log cites an entitlement on a `.dylib`, `.so`, or framework         | App entitlements were applied to a nested library.                                     | Nested Mach-O files are signed with `--options runtime --timestamp` only. Entitlements belong on `Contents/MacOS/Wellslip Desktop` and the outer `.app`. |
+| App launches then immediately quits, Console shows `EXC_BAD_ACCESS (Code Signature Invalid)`. | Entitlements were not actually applied to the executable.                              | `codesign -d --entitlements :- "/Applications/Wellslip Desktop.app"` should print the plist. If empty, re-sign. |
 | `spctl: rejected source=Unnotarized Developer ID` after stapling.           | `xcrun stapler staple` failed silently, or ran on the wrong artifact.                  | `xcrun stapler validate` on both `.app` and `.dmg`. Re-staple if either fails.               |
 | Notary "Accepted" but `stapler staple` says `Could not find base64 ticket`. | Apple's CDN hasn't propagated the ticket yet (rare).                                   | Wait 30 seconds and retry the staple.                                                        |
 
 ## Why this build script vs. PyInstaller's built-in signing?
 
 `stowe.spec` deliberately leaves `codesign_identity=None`. PyInstaller's
-built-in signing only signs the top-level `Stowe` Mach-O — every nested
+built-in signing only signs the top-level `Wellslip Desktop` Mach-O — every nested
 `.dylib` and `.so` (Pillow, pydantic_core, ssl modules, etc.) goes
 unsigned, and notarization rejects the bundle. The script signs everything
 inside-out, which is what Apple's TN3147 recommends. Nested libraries get

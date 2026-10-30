@@ -1,16 +1,17 @@
-; Inno Setup script for Stowe (Windows)
+; Inno Setup script for Wellslip Desktop (formerly Stowe) (Windows)
 ; Requires: Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
 ; Build:    iscc stowe.iss
 ; Input:    dist\Stowe\   (PyInstaller COLLECT output from stowe-windows.spec)
-; Output:   Stowe-0.8.0-windows-setup.exe
+; Output:   Wellslip-Desktop-0.8.0-windows-setup.exe
 
-#define AppName      "Stowe"
+#define AppName      "Wellslip Desktop"
 #define AppVersion   "0.8.0"
 #define AppPublisher "Connor Kay"
 #define AppURL       "https://stowe.health"
 #define AppExeName   "Stowe.exe"
 
 [Setup]
+; AppId is unchanged from Stowe so installs upgrade in place. Never change it.
 AppId={{A3F2C1D0-7E4B-4F9A-B8C5-2D6E1F0A3B7C}
 AppName={#AppName}
 AppVersion={#AppVersion}
@@ -19,7 +20,7 @@ AppSupportURL={#AppURL}
 DefaultDirName={localappdata}\Programs\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
-OutputBaseFilename=Stowe-{#AppVersion}-windows-setup
+OutputBaseFilename=Wellslip-Desktop-{#AppVersion}-windows-setup
 OutputDir=.
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -76,7 +77,7 @@ begin
   if not IsWebView2Installed() then
   begin
     MsgBox(
-      'Stowe requires the Microsoft Edge WebView2 Runtime.' + #13#10 +
+      'Wellslip Desktop requires the Microsoft Edge WebView2 Runtime.' + #13#10 +
       'It is pre-installed on Windows 10 (version 1803 or later) and Windows 11.' + #13#10#13#10 +
       'If the app does not open after installation, download WebView2 from:' + #13#10 +
       'https://developer.microsoft.com/microsoft-edge/webview2/',
