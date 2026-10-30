@@ -92,7 +92,7 @@ def test_exit_zero_without_verified_tokens_stays_unavailable(monkeypatch, result
     fake_worker(monkeypatch, result=result)
     run_warmup()
     assert ocr._WARMUP_STATE == "failed"
-    assert "Restart Stowe" in ocr.image_ocr_notice()
+    assert "Restart Wellslip Desktop" in ocr.image_ocr_notice()
 
 
 def test_nonzero_exit_cannot_be_ready(monkeypatch):
@@ -159,7 +159,7 @@ def test_thread_start_failure_leaves_app_available(monkeypatch):
     assert ocr.start_image_warmup() is False
     assert ocr._WARMUP_THREAD is None
     assert ocr._WARMUP_STATE == "failed"
-    assert "Restart Stowe" in ocr.image_ocr_notice()
+    assert "Restart Wellslip Desktop" in ocr.image_ocr_notice()
 
 
 def test_ready_image_uses_normal_request_worker(tmp_path, monkeypatch):
@@ -282,7 +282,7 @@ def test_request_deadline_includes_slot_wait(tmp_path, monkeypatch, slot_elapsed
         assert calls == [] and result == ("", "none")
 
 
-@pytest.mark.parametrize("state,phrase", [("warming", "preparing"), ("failed", "Restart Stowe"), ("ready", "Try Analyze again")])
+@pytest.mark.parametrize("state,phrase", [("warming", "preparing"), ("failed", "Restart Wellslip Desktop"), ("ready", "Try Analyze again")])
 def test_unreadable_image_api_is_explicit_and_preserves_receipt(client, monkeypatch, state, phrase):
     monkeypatch.setattr(ocr, "_WARMUP_STATE", state)
     monkeypatch.setattr(ocr, "extract_text", lambda _: ("", "none"))

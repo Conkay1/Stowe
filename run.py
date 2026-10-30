@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Stowe — entry point.
+Wellslip Desktop (formerly Stowe) — entry point.
 Run:  python3 run.py
 
 When packaged with PyInstaller (FROZEN=True), launches a native pywebview
@@ -81,8 +81,8 @@ def init_database():
     print("Initializing database...")
     init_db()
     print("Database ready.")
-    print(f"Stowe data dir: {DATA_DIR}")
-    print(f"Stowe database: {DATABASE_PATH}")
+    print(f"Wellslip Desktop data dir: {DATA_DIR}")
+    print(f"Wellslip Desktop database: {DATABASE_PATH}")
 
 
 def _start_uvicorn():
@@ -122,7 +122,7 @@ def launch_webview():
         print("WARNING: server didn't start in time; opening anyway…")
 
     webview.create_window(
-        title="Stowe",
+        title="Wellslip Desktop",
         url=URL,
         width=1100,
         height=820,
@@ -143,7 +143,7 @@ def launch_browser():
     srv = threading.Thread(target=_start_uvicorn, daemon=True)
     srv.start()
 
-    print(f"\nStowe running at {URL}")
+    print(f"\nWellslip Desktop running at {URL}")
     print("Listening on 127.0.0.1 only.")
     print("Press Ctrl+C to stop.\n")
 

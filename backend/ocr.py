@@ -45,7 +45,7 @@ def image_ocr_notice() -> str | None:
         return None
     if state in {"not_started", "warming"}:
         return "Local image recognition is preparing. Try Analyze again shortly."
-    return "Local image recognition is unavailable. Restart Stowe to retry, or verify this receipt manually."
+    return "Local image recognition is unavailable. Restart Wellslip Desktop to retry, or verify this receipt manually."
 
 
 def start_image_warmup() -> bool:

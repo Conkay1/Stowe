@@ -1,8 +1,13 @@
 # Changelog
 
-All notable changes to Stowe are documented here. The format is based on
+All notable changes to Wellslip Desktop (formerly Stowe) are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project follows
 [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Changed
+- **Stowe is now Wellslip Desktop.** The window title, app UI, README, and docs use the new name. Wellslip Mobile and Wellslip Sync are the companion phone app and optional sync service.
 
 ## [0.8.0] — 2026-09-30
 
