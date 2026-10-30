@@ -41,7 +41,7 @@ def test_posix_path_uses_xdg_data_home(monkeypatch, tmp_path):
     xdg = tmp_path / "xdg"
     monkeypatch.setenv("XDG_DATA_HOME", str(xdg))
 
-    assert config._user_data_dir() == xdg / "stowe"
+    assert config._user_data_dir() == xdg / "wellslip-desktop"
 
 
 def test_darwin_path_uses_application_support(monkeypatch):
@@ -49,7 +49,7 @@ def test_darwin_path_uses_application_support(monkeypatch):
     monkeypatch.setattr(sys, "platform", "darwin")
 
     assert config._user_data_dir() == (
-        Path.home() / "Library" / "Application Support" / "Stowe"
+        Path.home() / "Library" / "Application Support" / "Wellslip Desktop"
     )
 
 

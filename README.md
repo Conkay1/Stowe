@@ -87,8 +87,9 @@ Versions before 0.8.0 accepted connections from other devices on the local netwo
 ## Where does my data live?
 
 **Packaged app (macOS):**
-- Database: `~/Library/Application Support/Stowe/database/stowe.db`
-- Receipts: `~/Library/Application Support/Stowe/receipts/`
+- Database: `~/Library/Application Support/Wellslip Desktop/database/stowe.db`
+- Receipts: `~/Library/Application Support/Wellslip Desktop/receipts/`
+- Upgrading from Stowe: on first launch, if that folder is empty, the app copies `~/Library/Application Support/Stowe/` into it. The old Stowe folder is left untouched; delete it yourself once you're happy.
 
 **Packaged app (Windows):**
 - Database and receipts live at `%LOCALAPPDATA%\Stowe\`. On first launch, an existing `%APPDATA%\Stowe\` folder is moved there automatically.

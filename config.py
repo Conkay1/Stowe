@@ -6,6 +6,10 @@ import sys
 from pathlib import Path
 
 APP_NAME = "Stowe"
+# macOS and Linux releases from the Wellslip rebrand on keep their data in a
+# Wellslip-named folder. Windows keeps %LOCALAPPDATA%\Stowe (same AppId, so
+# installs upgrade in place and the data folder does not move).
+NEW_APP_NAME = "Wellslip Desktop"
 BASE_DIR = Path(__file__).parent
 logger = logging.getLogger("stowe.config")
 
@@ -31,9 +35,82 @@ def _user_data_dir() -> Path:
         )
         return _os_path(local) / APP_NAME
     if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / NEW_APP_NAME
+    xdg = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(xdg) / "wellslip-desktop"
+
+
+def _legacy_stowe_data_dir() -> Path:
+    """Data folder used by Stowe (bundle ID com.stowe.app) before the rebrand."""
+    if sys.platform == "darwin":
         return Path.home() / "Library" / "Application Support" / APP_NAME
     xdg = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
     return Path(xdg) / APP_NAME.lower()
+
+
+def _is_empty_dir(path: Path) -> bool:
+    try:
+        return path.is_dir() and not any(path.iterdir())
+    except OSError:
+        return False
+
+
+def migrate_stowe_data_dir(new_dir: Path, old_dir: Path | None = None) -> Path:
+    """Copy Stowe data into the Wellslip Desktop data folder on first launch.
+
+    Runs only when ``new_dir`` is missing or empty and ``old_dir`` holds data.
+    The whole tree is copied (``database/stowe.db``, ``receipts/`` and
+    anything else), so settings stored there come along. The original folder
+    is never modified or deleted. Existing data in ``new_dir`` is never
+    overwritten. The copy goes to a staging folder first and is renamed into
+    place only when complete, so an interrupted copy is retried next launch.
+
+    Returns the directory the app should use: ``new_dir`` normally, or
+    ``old_dir`` if the copy failed (the app keeps working on the original).
+    """
+    if old_dir is None:
+        old_dir = _legacy_stowe_data_dir()
+
+    if _same_path(old_dir, new_dir) or not old_dir.is_dir():
+        return new_dir
+    if new_dir.exists() and not _is_empty_dir(new_dir):
+        return new_dir
+    try:
+        if not any(old_dir.iterdir()):
+            return new_dir
+    except OSError:
+        return new_dir
+
+    staging = new_dir.parent / f".{new_dir.name}.migrating"
+    try:
+        new_dir.parent.mkdir(parents=True, exist_ok=True)
+        if staging.exists():
+            shutil.rmtree(staging)
+        shutil.copytree(old_dir, staging, symlinks=True)
+        if new_dir.exists():
+            # Only an empty folder reaches this point.
+            new_dir.rmdir()
+        os.replace(staging, new_dir)
+    except Exception as exc:
+        logger.error(
+            "Could not copy Stowe data from %s to %s (%s); using the original folder",
+            old_dir,
+            new_dir,
+            exc,
+        )
+        try:
+            if staging.exists():
+                shutil.rmtree(staging)
+        except OSError:
+            pass
+        return old_dir
+
+    logger.info(
+        "Copied Stowe data from %s to %s; original left in place",
+        old_dir,
+        new_dir,
+    )
+    return new_dir
 
 
 def _windows_roaming_data_dir() -> Path:
@@ -160,7 +237,7 @@ def _resolve_data_dir() -> Path:
     data_dir = _user_data_dir()
     if os.name == "nt":
         return migrate_roaming_data_dir(data_dir)
-    return data_dir
+    return migrate_stowe_data_dir(data_dir)
 
 
 def _is_repo_root(path: Path) -> bool:

@@ -9,6 +9,7 @@ All notable changes to Wellslip Desktop (formerly Stowe) are documented here. Th
 ### Changed
 - **Stowe is now Wellslip Desktop.** The window title, app UI, README, and docs use the new name. Wellslip Mobile and Wellslip Sync are the companion phone app and optional sync service.
 - **New macOS bundle ID `com.wellslip.desktop`.** The app is now `Wellslip Desktop.app` and the DMG is `Wellslip-Desktop-<version>.dmg`. macOS treats it as a new app: delete the old Stowe app after the first launch and approve permissions again once. The Windows installer keeps the same AppId, so it upgrades Stowe in place; it is now `Wellslip-Desktop-<version>-windows-setup.exe`.
+- **First-launch data copy (macOS and Linux).** If the Wellslip Desktop data folder is missing or empty, the app copies the old Stowe folder (database, receipts, and everything else) into it. The original is never changed or deleted, existing Wellslip Desktop data is never overwritten, and an interrupted copy is retried on the next launch. Windows keeps using `%LOCALAPPDATA%\Stowe\`.
 
 ## [0.8.0] — 2026-09-30
 
