@@ -90,6 +90,8 @@ export const api = {
   system: {
     getDataDir:    () => get("/system/data-dir"),
     revealDataDir: () => post("/system/reveal-data-dir", {}),
+    getTheme:      () => get("/system/theme"),
+    setTheme:      (theme) => req("PUT", "/system/theme", { theme }),
   },
   summary:     () => get("/summary"),
   annualLedger: () => get("/annual-ledger"),

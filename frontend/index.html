@@ -16,6 +16,23 @@
         var t = localStorage.getItem('stowe-theme');
         if (t && t !== 'dark') document.documentElement.setAttribute('data-theme', t);
       } catch (e) {}
+      // localStorage does not survive restarts in the packaged app's private
+      // webview, so the saved theme on disk is the source of truth.
+      try {
+        fetch('/api/v1/system/theme', { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (!d || !d.theme) return;
+            var el = document.documentElement;
+            if (d.theme === 'dark') el.removeAttribute('data-theme');
+            else el.setAttribute('data-theme', d.theme);
+            try { localStorage.setItem('stowe-theme', d.theme); } catch (e) {}
+            document.querySelectorAll('.theme-option').forEach(function (b) {
+              b.classList.toggle('active', b.dataset.theme === d.theme);
+            });
+          })
+          .catch(function () {});
+      } catch (e) {}
     })();
   </script>
   <link rel="stylesheet" href="/static/css/styles.css">

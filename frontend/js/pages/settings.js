@@ -7,7 +7,7 @@ function applyTheme(theme) {
   } else {
     document.documentElement.setAttribute('data-theme', theme);
   }
-  localStorage.setItem('stowe-theme', theme);
+  try { localStorage.setItem('stowe-theme', theme); } catch (e) {}
 }
 
 export async function render(container) {
@@ -16,10 +16,12 @@ export async function render(container) {
 
 async function renderView(container) {
   try {
-    const [cats, dataInfo] = await Promise.all([
+    const [cats, dataInfo, savedTheme] = await Promise.all([
       api.categories.list(),
       api.system.getDataDir().catch(() => null),
+      api.system.getTheme().catch(() => null),
     ]);
+    if (savedTheme && savedTheme.theme) applyTheme(savedTheme.theme);
     // Update global state with the name strings
     state.categories = cats.map(c => c.name);
 
@@ -124,6 +126,7 @@ async function renderView(container) {
       if (!btn) return;
       const theme = btn.dataset.theme;
       applyTheme(theme);
+      api.system.setTheme(theme).catch(() => toast("Could not save theme; it will reset on restart"));
       document.querySelectorAll(".theme-option").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       toast(`Theme set to ${theme}`);
