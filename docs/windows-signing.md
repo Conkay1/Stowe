@@ -1,6 +1,6 @@
 # Signing the Windows build
 
-`scripts/build-windows.ps1` produces `Stowe-<version>-windows-setup.exe`.
+`scripts/build-windows.ps1` produces `Wellslip-Desktop-<version>-windows-setup.exe`.
 Signing is optional. If `WINDOWS_CERT_PFX_BASE64` is unset or blank, the
 script skips Authenticode, says the build will be unsigned, and leaves
 `dist\Stowe\Stowe.exe` and the setup exe unsigned. A password without
@@ -18,7 +18,7 @@ first or the installed `Stowe.exe` would be unsigned.
 1. After PyInstaller, if a certificate is configured, `signtool` signs
    `dist\Stowe\Stowe.exe`.
 2. Inno Setup (`iscc stowe.iss`) builds the setup exe.
-3. `signtool` signs `Stowe-<version>-windows-setup.exe`.
+3. `signtool` signs `Wellslip-Desktop-<version>-windows-setup.exe`.
 
 The flags are `/fd SHA256 /tr <timestamp URL> /td SHA256`. The timestamp
 URL defaults to `http://timestamp.digicert.com` and can be overridden with
@@ -38,7 +38,7 @@ deleted when the script exits, including when the build fails.
 maps these repository secrets into the Windows job. The workflow is
 `workflow_dispatch` only. Its `platform` input is `both` (the default),
 `windows`, or `macos`. The Windows job uploads the setup exe as the
-`stowe-windows` artifact. The workflow does not publish a GitHub Release.
+`wellslip-desktop-windows` artifact. The workflow does not publish a GitHub Release.
 
 Add the secrets under **Settings → Secrets and variables → Actions**. Do
 not commit them.

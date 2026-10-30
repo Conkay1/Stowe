@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build Stowe.app and Stowe-<version>.dmg.
+# Build "Wellslip Desktop.app" and Wellslip-Desktop-<version>.dmg.
 #
 # Signed builds (see docs/macos-signing.md):
 #   Local: Developer ID Application certificate in the login keychain, and a
@@ -248,7 +248,7 @@ notary_submit() {
 sign_nested_binaries() {
     echo "==> Deep-sign nested binaries (inside-out)"
     echo "    .dylib / .so / .framework: hardened runtime + timestamp, no entitlements"
-    echo "    Contents/MacOS/Stowe and the .app bundle: entitlements applied"
+    echo "    Contents/MacOS/Wellslip Desktop and the .app bundle: entitlements applied"
 
     # Nested libraries must not carry the app entitlements. Notarization
     # rejects library-inappropriate keys; the hardened runtime enforces
@@ -265,7 +265,7 @@ sign_nested_binaries() {
 
     codesign --force --options runtime --timestamp \
         --entitlements "${ENTITLEMENTS}" --sign "${DEVELOPER_ID}" \
-        "${APP}/Contents/MacOS/Stowe"
+        "${APP}/Contents/MacOS/Wellslip Desktop"
 
     codesign --force --options runtime --timestamp \
         --entitlements "${ENTITLEMENTS}" --sign "${DEVELOPER_ID}" "${APP}"
@@ -279,11 +279,11 @@ VERSION=$(
     "$PYTHON" -c "import re, sys; m=re.search(r\"CFBundleShortVersionString['\\\"]\s*:\s*['\\\"]([^'\\\"]+)\", open('stowe.spec').read()); print(m.group(1) if m else sys.exit('Cannot find CFBundleShortVersionString in stowe.spec'))"
 )
 
-APP="dist/Stowe.app"
+APP="dist/Wellslip Desktop.app"
 DMG_STAGING="dist/dmg-staging"
 ENTITLEMENTS="assets/entitlements.plist"
-DMG="Stowe-${VERSION}.dmg"
-ZIP="Stowe-${VERSION}.zip"
+DMG="Wellslip-Desktop-${VERSION}.dmg"
+ZIP="Wellslip-Desktop-${VERSION}.zip"
 
 SIGNING=0
 if [[ -z "${DEVELOPER_ID}" ]]; then
@@ -294,7 +294,7 @@ if [[ -z "${DEVELOPER_ID}" ]]; then
     if [[ -n "${MACOS_CERT_P12_BASE64:-}" || -n "${MACOS_CERT_PASSWORD:-}" ]]; then
         echo "WARNING: MACOS_CERT_P12_BASE64 / MACOS_CERT_PASSWORD are set, but signing still requires DEVELOPER_ID." >&2
     fi
-    echo "==> Stowe ${VERSION} — unsigned build"
+    echo "==> Wellslip Desktop ${VERSION} — unsigned build"
 else
     SIGNING=1
     if ! command -v codesign >/dev/null 2>&1; then
@@ -309,7 +309,7 @@ else
         import_ci_certificate
     fi
     configure_notary_auth
-    echo "==> Stowe ${VERSION} — signing as: ${DEVELOPER_ID}"
+    echo "==> Wellslip Desktop ${VERSION} — signing as: ${DEVELOPER_ID}"
 fi
 
 echo "==> Clean previous build artifacts"
@@ -348,7 +348,7 @@ rm -rf "$DMG_STAGING"
 mkdir -p "$DMG_STAGING"
 cp -R "$APP" "$DMG_STAGING/"
 ln -s /Applications "$DMG_STAGING/Applications"
-hdiutil create -volname "Stowe" -srcfolder "$DMG_STAGING" \
+hdiutil create -volname "Wellslip Desktop" -srcfolder "$DMG_STAGING" \
     -ov -format UDZO "$DMG"
 
 if [[ "${SIGNING}" -eq 1 ]]; then

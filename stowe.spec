@@ -1,4 +1,4 @@
-# PyInstaller spec for Stowe macOS .app
+# PyInstaller spec for Wellslip Desktop (formerly Stowe) macOS .app
 # Build: /opt/homebrew/bin/python3.11 -m PyInstaller stowe.spec --noconfirm
 
 import pathlib
@@ -85,7 +85,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='Stowe',
+    name='Wellslip Desktop',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -108,17 +108,19 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='Stowe',
+    name='Wellslip Desktop',
 )
 
 app = BUNDLE(
     coll,
-    name='Stowe.app',
+    name='Wellslip Desktop.app',
     icon='assets/stowe.icns',
-    bundle_identifier='com.stowe.app',
+    # New bundle ID for every release from here on. Releases up to 0.8.0 used
+    # com.stowe.app; see config.py for the first-launch data migration.
+    bundle_identifier='com.wellslip.desktop',
     info_plist={
-        'CFBundleName': 'Stowe',
-        'CFBundleDisplayName': 'Stowe',
+        'CFBundleName': 'Wellslip Desktop',
+        'CFBundleDisplayName': 'Wellslip Desktop',
         'CFBundleVersion': '0.8.0',
         'CFBundleShortVersionString': '0.8.0',
         'NSHighResolutionCapable': True,

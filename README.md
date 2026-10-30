@@ -135,7 +135,7 @@ export DEVELOPER_ID="Developer ID Application: Your Name (TEAMID)"
 ./scripts/build-macos.sh
 ```
 
-Produces a signed, notarized, stapled `Stowe-<version>.dmg` in the repo root.
+Produces a signed, notarized, stapled `Wellslip-Desktop-<version>.dmg` in the repo root.
 
 ---
 

@@ -8,7 +8,7 @@
 # Usage (from repo root in PowerShell):
 #   .\scripts\build-windows.ps1
 #
-# Output: Stowe-<version>-windows-setup.exe in the repo root.
+# Output: Wellslip-Desktop-<version>-windows-setup.exe in the repo root.
 #
 # Optional Authenticode signing (see docs/windows-signing.md).
 # WINDOWS_CERT_PFX_BASE64 absent or blank → unsigned build, exit 0.
@@ -139,7 +139,7 @@ if (-not $hasPfx) {
 
 # ── Version from stowe.iss ────────────────────────────────────────────────────
 $version = (Select-String -Path "stowe.iss" -Pattern '#define AppVersion\s+"([^"]+)"').Matches[0].Groups[1].Value
-Write-Host "==> Stowe $version — Windows build"
+Write-Host "==> Wellslip Desktop $version — Windows build"
 
 # ── Inno Setup location ───────────────────────────────────────────────────────
 $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
@@ -190,7 +190,7 @@ if (-not (Test-Path ".venv")) {
 Write-Host "==> Cleaning previous build artifacts"
 if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
 if (Test-Path "dist")  { Remove-Item -Recurse -Force "dist" }
-$old = "Stowe-$version-windows-setup.exe"
+$old = "Wellslip-Desktop-$version-windows-setup.exe"
 if (Test-Path $old) { Remove-Item -Force $old }
 
 # ── PyInstaller ───────────────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ if ($signing) {
 Write-Host "==> Running Inno Setup"
 & $iscc "stowe.iss"
 
-$installer = "Stowe-$version-windows-setup.exe"
+$installer = "Wellslip-Desktop-$version-windows-setup.exe"
 if (-not (Test-Path $installer)) {
     Write-Error "Inno Setup did not produce $installer"
     exit 1
