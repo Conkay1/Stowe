@@ -247,7 +247,7 @@ python3 run.py</pre>
       <div class="faq">
         <details>
           <summary>Where exactly is my data stored?</summary>
-          <p>On macOS the app keeps two things: a SQLite database at <code>~/Library/Application Support/Wellslip Desktop/database/stowe.db</code> and your receipt files at <code>~/Library/Application Support/Wellslip Desktop/receipts/</code>. On Windows both live in <code>%LOCALAPPDATA%\Stowe\</code>. An older <code>%APPDATA%\Stowe\</code> folder is moved there automatically. To back up, copy that folder. To wipe everything, delete it.</p>
+          <p>On macOS the app keeps two things: a SQLite database at <code>~/Library/Application Support/Wellslip Desktop/database/wellslip.db</code> and your receipt files at <code>~/Library/Application Support/Wellslip Desktop/receipts/</code>. On Windows both live in <code>%LOCALAPPDATA%\Wellslip Desktop\</code>. On first launch an existing Stowe folder is copied there and the original is left alone. To back up, copy that folder. To wipe everything, delete it.</p>
         </details>
         <details>
           <summary>Does Wellslip Desktop send anything over the internet?</summary>
@@ -269,7 +269,7 @@ python3 run.py</pre>
         </details>
         <details>
           <summary>How do I back up my data?</summary>
-          <p>Copy the Wellslip Desktop data folder anywhere — iCloud Drive, Dropbox, an external drive. On a Mac that folder is <code>~/Library/Application Support/Wellslip Desktop/</code>. On Windows it is <code>%LOCALAPPDATA%\Stowe\</code> (an older <code>%APPDATA%\Stowe\</code> folder is moved there automatically). The SQLite database and the receipts both back up cleanly. To restore, copy the folder back. The Annual Ledger can also download a zip of the database and receipt files.</p>
+          <p>Copy the Wellslip Desktop data folder anywhere — iCloud Drive, Dropbox, an external drive. On a Mac that folder is <code>~/Library/Application Support/Wellslip Desktop/</code>. On Windows it is <code>%LOCALAPPDATA%\Wellslip Desktop\</code>. The SQLite database and the receipts both back up cleanly. To restore, copy the folder back. The Annual Ledger can also download a zip of the database and receipt files.</p>
         </details>
         <details>
           <summary>Can I use Wellslip Desktop for tax advice?</summary>

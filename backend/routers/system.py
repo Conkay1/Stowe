@@ -4,6 +4,7 @@ import sys
 
 from fastapi import APIRouter, HTTPException
 
+import config
 from config import DATA_DIR, DATABASE_PATH, RECEIPTS_DIR, ensure_private_dir
 
 router = APIRouter(prefix="/api/v1/system", tags=["system"])
@@ -15,6 +16,8 @@ def get_data_dir():
         "data_dir": str(DATA_DIR),
         "database_path": str(DATABASE_PATH),
         "receipts_dir": str(RECEIPTS_DIR),
+        # Set only when the Stowe data copy failed this launch.
+        "migration_notice": config.MIGRATION_NOTICE,
     }
 
 

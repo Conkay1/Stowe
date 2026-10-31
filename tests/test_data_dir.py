@@ -73,7 +73,9 @@ def test_frozen_windows_migrates_roaming_dir_on_resolve(monkeypatch, tmp_path):
 
     resolved = config._resolve_data_dir()
 
-    assert resolved == local / "Wellslip Desktop"
+    # The fake "ledger" database can't be snapshotted, so the app stays on
+    # the (moved) Stowe folder rather than hide data.
+    assert resolved == local / "Stowe"
     assert (resolved / "database" / "stowe.db").read_text() == "ledger"
     assert (resolved / "receipts" / "scan.png").read_bytes() == b"png"
     assert not (roaming / "Stowe").exists()
