@@ -529,7 +529,7 @@ def export_zip():
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         if DATABASE_PATH.exists():
-            zf.write(DATABASE_PATH, "stowe.db")
+            zf.write(DATABASE_PATH, "wellslip.db")
         if RECEIPTS_DIR.exists():
             for f in RECEIPTS_DIR.iterdir():
                 if f.is_file():

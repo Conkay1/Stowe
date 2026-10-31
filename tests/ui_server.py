@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
 
 config.DATA_DIR = Path(sys.argv[1]).resolve()
-config.DATABASE_PATH = config.DATA_DIR / "database" / "stowe.db"
+config.DATABASE_PATH = config.DATA_DIR / "database" / "wellslip.db"
 config.DATABASE_URL = f"sqlite:///{config.DATABASE_PATH}"
 config.RECEIPTS_DIR = config.DATA_DIR / "receipts"
 

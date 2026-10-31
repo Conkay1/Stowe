@@ -3,6 +3,9 @@ database/*.db
 database/*.db-journal
 database/*.db-wal
 database/*.db-shm
+database/.wellslip.db.migrating
+database/.wellslip-migration.lock
+database/migration.log
 receipts/*
 !receipts/.gitkeep
 !database/.gitkeep

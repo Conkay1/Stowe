@@ -13,6 +13,7 @@
   <script>
     (function () {
       try {
+        // Key kept from Stowe so existing theme choices carry over.
         var t = localStorage.getItem('stowe-theme');
         if (t && t !== 'dark') document.documentElement.setAttribute('data-theme', t);
       } catch (e) {}

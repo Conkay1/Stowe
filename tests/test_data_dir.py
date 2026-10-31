@@ -22,7 +22,7 @@ def test_windows_path_uses_localappdata_not_roaming(monkeypatch, tmp_path):
     monkeypatch.setenv("LOCALAPPDATA", str(local))
     monkeypatch.setenv("APPDATA", str(roaming))
 
-    assert config._user_data_dir() == local / "Stowe"
+    assert config._user_data_dir() == local / "Wellslip Desktop"
 
 
 def test_windows_path_falls_back_when_localappdata_unset(monkeypatch):
@@ -31,7 +31,7 @@ def test_windows_path_falls_back_when_localappdata_unset(monkeypatch):
     monkeypatch.setenv("APPDATA", "/tmp/roaming-should-not-be-used")
 
     assert config._user_data_dir() == (
-        PosixPath(os.path.expanduser("~")) / "AppData" / "Local" / "Stowe"
+        PosixPath(os.path.expanduser("~")) / "AppData" / "Local" / "Wellslip Desktop"
     )
 
 
@@ -41,7 +41,7 @@ def test_posix_path_uses_xdg_data_home(monkeypatch, tmp_path):
     xdg = tmp_path / "xdg"
     monkeypatch.setenv("XDG_DATA_HOME", str(xdg))
 
-    assert config._user_data_dir() == xdg / "stowe"
+    assert config._user_data_dir() == xdg / "wellslip-desktop"
 
 
 def test_darwin_path_uses_application_support(monkeypatch):
@@ -49,7 +49,7 @@ def test_darwin_path_uses_application_support(monkeypatch):
     monkeypatch.setattr(sys, "platform", "darwin")
 
     assert config._user_data_dir() == (
-        Path.home() / "Library" / "Application Support" / "Stowe"
+        Path.home() / "Library" / "Application Support" / "Wellslip Desktop"
     )
 
 
@@ -73,10 +73,14 @@ def test_frozen_windows_migrates_roaming_dir_on_resolve(monkeypatch, tmp_path):
 
     resolved = config._resolve_data_dir()
 
+    # The fake "ledger" database can't be snapshotted, so the app stays on
+    # the (moved) Stowe folder rather than hide data.
     assert resolved == local / "Stowe"
     assert (resolved / "database" / "stowe.db").read_text() == "ledger"
     assert (resolved / "receipts" / "scan.png").read_bytes() == b"png"
     assert not (roaming / "Stowe").exists()
+    # The Stowe folder moved out of Roaming is kept as the untouched original.
+    assert (local / "Stowe" / "database" / "stowe.db").read_text() == "ledger"
 
 
 def test_migrate_moves_legacy_tree(tmp_path, caplog):

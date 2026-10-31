@@ -28,6 +28,21 @@ export function closeModal() {
 document.getElementById("modal-close").addEventListener("click", closeModal);
 overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
 
+// ── Data migration notice ─────────────────────────────────────
+// Shown once per launch when the Stowe data copy failed and the app is
+// running on the old Stowe folder.
+(async function showMigrationNotice() {
+  try {
+    const info = await api.system.getDataDir();
+    if (!info || !info.migration_notice) return;
+    if (sessionStorage.getItem("wellslip-migration-notice") === info.migration_notice) return;
+    sessionStorage.setItem("wellslip-migration-notice", info.migration_notice);
+    toast(info.migration_notice, "error");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.add("hidden"), 15000);
+  } catch (e) {}
+})();
+
 // ── Router ─────────────────────────────────────────────────────
 const PAGES = {
   vault:    () => import("./pages/vault.js"),
